@@ -15,7 +15,7 @@ export function WorkspacePage({ children, className, grid = false, fluid = false
 
 export function PageHeader({ title, description, meta, actions, icon }: { title: string; description?: string; meta?: ReactNode; actions?: ReactNode; icon?: WorkspaceSignalIconVariant }) {
     return (
-        <header className="app-page-header flex min-h-14 flex-col gap-3 border-b border-border/80 pb-4 pr-28 sm:flex-row sm:items-center sm:justify-between sm:pr-32">
+        <header className="app-page-header flex min-h-14 flex-col gap-3 border-b border-border/80 pb-4 pr-44 sm:flex-row sm:items-center sm:justify-between sm:pr-48 xl:pr-64">
             <div className="flex min-w-0 items-center gap-3">
                 {icon ? <WorkspaceSignalIcon variant={icon} /> : null}
                 <div className="min-w-0">
@@ -36,7 +36,11 @@ export function ListToolbar({ children, trailing, active, onReset, className }: 
         <div className={cn("mt-3 flex min-h-12 flex-col gap-2 border-b border-border/75 pb-3 lg:flex-row lg:items-center lg:justify-between", className)}>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">{children}</div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-                {active && onReset ? <Button type="text" icon={<RotateCcw className="size-3.5" />} onClick={onReset}>重置</Button> : null}
+                {active && onReset ? (
+                    <Button type="text" icon={<RotateCcw className="size-3.5" />} onClick={onReset}>
+                        重置
+                    </Button>
+                ) : null}
                 {trailing}
             </div>
         </div>

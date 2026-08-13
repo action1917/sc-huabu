@@ -411,27 +411,43 @@ func ossSettingFromRequest(req OSSSettingRequest, current ossSettingValue) (ossS
 	if next.Provider == "" {
 		next.Provider = "aliyun"
 	}
-	if next.Provider != "aliyun" {
-		return next, BadAuthRequest("暂时只支持阿里云 OSS")
+	if next.Provider != "aliyun" && next.Provider != "tencent" && next.Provider != "qiniu" {
+		return next, BadAuthRequest("存储服务仅支持阿里云 OSS、腾讯云 COS 或七牛云 Kodo")
 	}
 	if next.AccessKeySecret == "" {
 		next.AccessKeySecret = current.AccessKeySecret
 	}
+	if next.Provider == "qiniu" && next.Endpoint == "" {
+		next.Endpoint = "https://up.qiniup.com"
+	}
 	if next.Enabled {
 		if next.Bucket == "" {
-			return next, BadAuthRequest("请填写 OSS Bucket")
+			return next, BadAuthRequest("请填写存储 Bucket")
 		}
-		if next.Endpoint == "" {
-			return next, BadAuthRequest("请填写 OSS Endpoint")
+		if next.Provider == "aliyun" && next.Endpoint == "" {
+			return next, BadAuthRequest("请填写阿里云 OSS Endpoint")
 		}
-		if _, err := ValidateOutboundURL(next.Endpoint); err != nil {
-			return next, err
+		if next.Provider == "tencent" && next.Endpoint == "" && next.Region == "" {
+			return next, BadAuthRequest("请填写腾讯云 COS Region 或 Endpoint")
+		}
+		if next.Endpoint != "" {
+			if _, err := ValidateOutboundURL(next.Endpoint); err != nil {
+				return next, err
+			}
 		}
 		if next.AccessKeyID == "" {
 			return next, BadAuthRequest("请填写 AccessKey ID")
 		}
 		if next.AccessKeySecret == "" {
 			return next, BadAuthRequest("请填写 AccessKey Secret")
+		}
+		if next.Provider == "qiniu" && next.PublicBaseURL == "" {
+			return next, BadAuthRequest("七牛云存储需要填写绑定的下载域名")
+		}
+		if next.Provider == "qiniu" {
+			if _, err := ValidateOutboundURL(next.PublicBaseURL); err != nil {
+				return next, fmt.Errorf("七牛云下载域名无效：%w", err)
+			}
 		}
 	}
 	return next, nil

@@ -3,6 +3,7 @@ import { History } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 
 import { GlobalThemeToggle } from "@/components/layout/global-theme-toggle";
+import { GlobalAccountMenu } from "@/components/layout/global-account-menu";
 import { SystemAnnouncementCenter } from "@/components/layout/system-announcement-center";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/stores/use-user-store";
@@ -12,7 +13,8 @@ type GlobalWorkspaceActionsProps = {
     buttonClassName?: string;
 };
 
-const defaultButtonClass = "grid size-9 place-items-center rounded-lg border border-border/65 bg-background/80 text-foreground/65 shadow-sm backdrop-blur-md transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const defaultButtonClass =
+    "grid size-9 place-items-center rounded-lg border border-border/65 bg-background/80 text-foreground/65 shadow-sm backdrop-blur-md transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function GlobalWorkspaceActions({ className, buttonClassName }: GlobalWorkspaceActionsProps) {
     const { pathname } = useLocation();
@@ -31,10 +33,13 @@ export function GlobalWorkspaceActions({ className, buttonClassName }: GlobalWor
     return (
         <div className={cn("flex items-center gap-1.5", className)}>
             <Tooltip title="历史对话">
-                <button type="button" className={actionClass} onClick={openHistory} aria-label="历史对话"><History className="size-4" /></button>
+                <button type="button" className={actionClass} onClick={openHistory} aria-label="历史对话">
+                    <History className="size-4" />
+                </button>
             </Tooltip>
             {user ? <SystemAnnouncementCenter userId={user.id} className={cn("relative", actionClass)} staticMotion /> : null}
             <GlobalThemeToggle className={actionClass} />
+            <GlobalAccountMenu compact={Boolean(buttonClassName)} className={buttonClassName} />
         </div>
     );
 }

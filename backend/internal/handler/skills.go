@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"infinite-canvas/backend/internal/service"
 
@@ -108,6 +109,22 @@ func RegisterSkillRoutes(r *gin.RouterGroup, svc *service.Service) {
 	})
 
 	r.POST("/skills/:id/add", setSkillAdded(svc, true))
+	r.POST("/skills/:id/unlock", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		if !enforceRateLimit(c, "skill-unlock:"+user.ID, 60, time.Hour) {
+			return
+		}
+		purchased, err := svc.UnlockSkill(user.ID, c.Param("id"))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"unlocked": true, "purchased": purchased})
+	})
 	r.DELETE("/skills/:id/add", setSkillAdded(svc, false))
 	r.POST("/skills/:id/like", setSkillLiked(svc, true))
 	r.DELETE("/skills/:id/like", setSkillLiked(svc, false))

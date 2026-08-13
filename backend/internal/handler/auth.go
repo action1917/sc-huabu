@@ -100,6 +100,18 @@ func RegisterAuthRoutes(r *gin.RouterGroup, svc *service.Service) {
 		c.Redirect(http.StatusFound, target)
 	})
 	r.GET("/auth/linuxdo/callback", linuxDOCallbackHandler(svc))
+	r.GET("/auth/google/start", func(c *gin.Context) {
+		if !enforceRateLimit(c, "google-start:"+c.ClientIP(), 20, 10*time.Minute) {
+			return
+		}
+		target, err := svc.BeginGoogleLogin(c.Query("next"))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		c.Redirect(http.StatusFound, target)
+	})
+	r.GET("/auth/google/callback", googleCallbackHandler(svc))
 	r.POST("/auth/logout", func(c *gin.Context) {
 		_ = svc.Logout(sessionCookie(c))
 		clearSessionCookie(c)
@@ -151,6 +163,22 @@ func RegisterAuthRoutes(r *gin.RouterGroup, svc *service.Service) {
 // 兼容已在 Linux.do OAuth 应用中登记的传统回调地址，处理逻辑与 /api/auth/linuxdo/callback 完全一致。
 func RegisterOAuthCallbackRoutes(r gin.IRoutes, svc *service.Service) {
 	r.GET("/oauth/linuxdo/callback", linuxDOCallbackHandler(svc))
+	r.GET("/oauth/google/callback", googleCallbackHandler(svc))
+}
+
+func googleCallbackHandler(svc *service.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !enforceRateLimit(c, "google-callback:"+c.ClientIP(), 30, 10*time.Minute) {
+			return
+		}
+		result, err := svc.CompleteGoogleLogin(c.Query("state"), c.Query("code"))
+		if err != nil {
+			c.Redirect(http.StatusFound, "/login?oauth_error="+url.QueryEscape(err.Error()))
+			return
+		}
+		setSessionCookie(c, result.Session.Session, result.Session.MaxAgeSecs)
+		c.Redirect(http.StatusFound, result.Next)
+	}
 }
 
 func linuxDOCallbackHandler(svc *service.Service) gin.HandlerFunc {

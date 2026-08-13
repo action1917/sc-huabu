@@ -25,7 +25,7 @@ export type RemoteResource = {
 
 export type UserOSSSetting = {
     enabled: boolean;
-    provider: "aliyun";
+    provider: "aliyun" | "tencent" | "qiniu";
     region: string;
     endpoint: string;
     bucket: string;
@@ -36,7 +36,7 @@ export type UserOSSSetting = {
     updatedAt?: string;
 };
 
-export type UserOSSSettingInput = Pick<UserOSSSetting, "enabled" | "provider" | "region" | "endpoint" | "bucket" | "accessKeyId" | "pathPrefix"> & {
+export type UserOSSSettingInput = Pick<UserOSSSetting, "enabled" | "provider" | "region" | "endpoint" | "bucket" | "accessKeyId" | "pathPrefix" | "publicBaseUrl"> & {
     accessKeySecret?: string;
 };
 
@@ -55,6 +55,10 @@ export function getUserOSSSetting() {
 
 export function updateUserOSSSetting(input: UserOSSSettingInput) {
     return request<{ setting: UserOSSSetting }>(api.patch("/settings/oss", input));
+}
+
+export function listResources(limit = 200) {
+    return request<{ resources: RemoteResource[] }>(api.get("/resources", { params: { limit } }));
 }
 
 export function resourceIdFromStorageKey(storageKey?: string) {

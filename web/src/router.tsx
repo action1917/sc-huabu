@@ -28,6 +28,7 @@ import NotFound from "@/pages/not-found";
 import RouteErrorPage from "@/pages/route-error";
 import SkillsPage from "@/pages/skills";
 import TasksPage from "@/pages/tasks";
+import TeamsPage from "@/pages/teams";
 import WalletPage from "@/pages/wallet";
 import ProjectsPage from "@/pages/projects";
 import ProjectDetailPage from "@/pages/projects/detail";
@@ -93,6 +94,14 @@ export const router = createBrowserRouter([
                 element: (
                     <RequireAuth>
                         <SkillsPage />
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: "/teams",
+                element: (
+                    <RequireAuth>
+                        <TeamsPage />
                     </RequireAuth>
                 ),
             },

@@ -651,11 +651,25 @@ func validateActiveOSSSetting(setting ossSettingValue, disabledMessage string, i
 	if !setting.Enabled {
 		return ossSettingValue{}, BadAuthRequest(disabledMessage)
 	}
-	if setting.Provider != "aliyun" {
-		return ossSettingValue{}, BadAuthRequest("暂时只支持阿里云 OSS")
+	if setting.Provider != "aliyun" && setting.Provider != "tencent" && setting.Provider != "qiniu" {
+		return ossSettingValue{}, BadAuthRequest("存储服务仅支持阿里云 OSS、腾讯云 COS 或七牛云 Kodo")
 	}
-	if setting.Bucket == "" || setting.Endpoint == "" || setting.AccessKeyID == "" || setting.AccessKeySecret == "" {
+	if setting.Bucket == "" || setting.AccessKeyID == "" || setting.AccessKeySecret == "" {
 		return ossSettingValue{}, BadAuthRequest(incompleteMessage)
+	}
+	if setting.Provider == "aliyun" && setting.Endpoint == "" {
+		return ossSettingValue{}, BadAuthRequest(incompleteMessage)
+	}
+	if setting.Provider == "tencent" && setting.Endpoint == "" && setting.Region == "" {
+		return ossSettingValue{}, BadAuthRequest(incompleteMessage)
+	}
+	if setting.Provider == "qiniu" {
+		if setting.Endpoint == "" {
+			setting.Endpoint = "https://up.qiniup.com"
+		}
+		if setting.PublicBaseURL == "" {
+			return ossSettingValue{}, BadAuthRequest(incompleteMessage)
+		}
 	}
 	return setting, nil
 }
@@ -686,10 +700,13 @@ func ossObjectKey(setting ossSettingValue, userID string, kind string, fileName 
 }
 
 func putOSSObject(setting ossSettingValue, objectKey string, mimeType string, size int64, body io.Reader) (string, error) {
+	if setting.Provider == "qiniu" {
+		return putQiniuObject(setting, objectKey, mimeType, size, body)
+	}
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}
-	req, err := newOSSRequest(http.MethodPut, setting, objectKey, mimeType, body)
+	req, err := newCloudObjectRequest(http.MethodPut, setting, objectKey, mimeType, body)
 	if err != nil {
 		return "", err
 	}
@@ -717,7 +734,7 @@ type ossObjectStream struct {
 }
 
 func getOSSObjectRange(setting ossSettingValue, objectKey string, rangeHeader string) (*ossObjectStream, error) {
-	req, err := newOSSRequest(http.MethodGet, setting, objectKey, "", nil)
+	req, err := newCloudObjectRequest(http.MethodGet, setting, objectKey, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -758,6 +775,12 @@ func decimalDigits(value string) bool {
 }
 
 func signedOSSObjectURL(setting ossSettingValue, objectKey string, expiresAt time.Time) (string, error) {
+	if setting.Provider == "qiniu" {
+		return signedQiniuObjectURL(setting, objectKey, expiresAt)
+	}
+	if setting.Provider == "tencent" {
+		return signedTencentObjectURL(setting, objectKey, expiresAt)
+	}
 	baseURL, err := ossBucketBaseURL(setting)
 	if err != nil {
 		return "", err
@@ -782,7 +805,13 @@ func signedOSSObjectURL(setting ossSettingValue, objectKey string, expiresAt tim
 	return baseURL.String(), nil
 }
 
-func newOSSRequest(method string, setting ossSettingValue, objectKey string, contentType string, body io.Reader) (*http.Request, error) {
+func newCloudObjectRequest(method string, setting ossSettingValue, objectKey string, contentType string, body io.Reader) (*http.Request, error) {
+	if setting.Provider == "qiniu" {
+		return newQiniuDownloadRequest(method, setting, objectKey)
+	}
+	if setting.Provider == "tencent" {
+		return newTencentObjectRequest(method, setting, objectKey, contentType, body)
+	}
 	baseURL, err := ossBucketBaseURL(setting)
 	if err != nil {
 		return nil, err

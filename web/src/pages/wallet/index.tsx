@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, App, Button, Grid, Input, Modal, QRCode, Radio, Segmented, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowDownLeft, ArrowUpRight, CalendarCheck, Coins, CreditCard, RefreshCw, RotateCcw, ShieldCheck, SlidersHorizontal, Sparkles, TicketCheck } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarCheck, Coins, Copy, CreditCard, RefreshCw, RotateCcw, ShieldCheck, SlidersHorizontal, Sparkles, TicketCheck, UserPlus } from "lucide-react";
 
 import { formatCredits } from "@/constant/credits";
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
@@ -10,7 +10,20 @@ import { WorkspaceState } from "@/components/layout/workspace-state";
 import { WorkspaceSignalIcon } from "@/components/ui/aceternity/workspace-signal-icon";
 import { CometCard } from "@/components/ui/aceternity/comet-card";
 import { aceternityMotion } from "@/lib/aceternity-motion";
-import { checkinCredits, createPaymentOrder, getPaymentCatalog, getPaymentOrder, getWallet, redeemCredits, type CreditLedgerEntry, type PaymentCatalog, type PaymentOrder, type WalletSummary } from "@/services/api/wallet";
+import {
+    checkinCredits,
+    createPaymentOrder,
+    getInviteSummary,
+    getPaymentCatalog,
+    getPaymentOrder,
+    getWallet,
+    redeemCredits,
+    type CreditLedgerEntry,
+    type InviteSummary,
+    type PaymentCatalog,
+    type PaymentOrder,
+    type WalletSummary,
+} from "@/services/api/wallet";
 import { modelDisplayName, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 
 type LedgerFilter = "all" | "income" | "consume" | "refund";
@@ -39,6 +52,7 @@ export default function WalletPage() {
     const [selectedPackage, setSelectedPackage] = useState("");
     const [selectedProvider, setSelectedProvider] = useState<PaymentCatalog["providers"][number]["key"] | "">("");
     const [activePayment, setActivePayment] = useState<PaymentOrder | null>(null);
+    const [invite, setInvite] = useState<InviteSummary | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const requestSequence = useRef(0);
@@ -68,6 +82,12 @@ export default function WalletPage() {
                 setSelectedProvider(catalog.providers[0]?.key || "");
             })
             .catch(() => setPaymentCatalog(null));
+    }, []);
+
+    useEffect(() => {
+        void getInviteSummary()
+            .then(setInvite)
+            .catch(() => setInvite(null));
     }, []);
 
     useEffect(() => {
@@ -277,6 +297,28 @@ export default function WalletPage() {
                     </motion.div>
                 </section>
 
+                {invite ? (
+                    <section className="app-workspace-surface mt-4 flex flex-col gap-4 rounded-lg border p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                            <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-blue-400/20 bg-blue-400/10 text-blue-500">
+                                <UserPlus className="size-4" />
+                            </span>
+                            <div>
+                                <h2 className="text-sm font-semibold">邀请好友，双方得积分</h2>
+                                <p className="mt-1 text-xs leading-5 text-foreground/55">
+                                    已邀请 {invite.invitedCount} 人。好友注册后，你获得 {formatCredits(invite.inviterRewardMicrocredits)} 积分，好友获得 {formatCredits(invite.inviteeRewardMicrocredits)} 积分。
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <Input readOnly value={invite.code} className="w-36 font-mono" />
+                            <Button icon={<Copy className="size-4" />} disabled={!invite.enabled} onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/register?invite=${invite.code}`).then(() => message.success("邀请链接已复制"))}>
+                                {invite.enabled ? "复制邀请链接" : "邀请暂停"}
+                            </Button>
+                        </div>
+                    </section>
+                ) : null}
+
                 <PaymentModal
                     open={paymentOpen}
                     catalog={paymentCatalog}
@@ -403,6 +445,9 @@ function ledgerTypeMeta(type: CreditLedgerEntry["type"]) {
         payment: { label: "在线充值", tagColor: "success", icon: <CreditCard className="size-4" />, iconClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300" },
         inspiration_purchase: { label: "购买灵感", tagColor: "error", icon: <Coins className="size-4" />, iconClass: "bg-rose-500/10 text-rose-600 dark:text-rose-300" },
         inspiration_sale: { label: "灵感售出", tagColor: "success", icon: <Coins className="size-4" />, iconClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300" },
+        invite_reward: { label: "邀请奖励", tagColor: "blue", icon: <UserPlus className="size-4" />, iconClass: "bg-blue-500/10 text-blue-600 dark:text-blue-300" },
+        skill_purchase: { label: "购买技能", tagColor: "error", icon: <Coins className="size-4" />, iconClass: "bg-rose-500/10 text-rose-600 dark:text-rose-300" },
+        skill_sale: { label: "技能售出", tagColor: "success", icon: <Coins className="size-4" />, iconClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300" },
     } as const;
     return values[type] || { label: "其他积分变动", tagColor: "default", icon: <ArrowUpRight className="size-4" />, iconClass: "bg-muted text-foreground/60" };
 }
@@ -416,6 +461,9 @@ function ledgerTitle(entry: CreditLedgerEntry) {
     if (entry.type === "payment") return "在线支付充值";
     if (entry.type === "inspiration_purchase") return "购买灵感";
     if (entry.type === "inspiration_sale") return "灵感售出";
+    if (entry.type === "invite_reward") return "邀请奖励";
+    if (entry.type === "skill_purchase") return "购买技能";
+    if (entry.type === "skill_sale") return "技能售出";
     return entry.note || "积分调整";
 }
 
@@ -463,14 +511,7 @@ function PaymentModal({
                 </div>
             ) : (
                 <div className="space-y-5 py-3">
-                    {!paymentAvailable ? (
-                        <Alert
-                            showIcon
-                            type="info"
-                            message="在线充值渠道待配置"
-                            description="管理员正在配置支付宝、微信、Stripe 或 PayPal。配置完成后，本页面会自动显示充值套餐和支付方式。"
-                        />
-                    ) : null}
+                    {!paymentAvailable ? <Alert showIcon type="info" message="在线充值渠道待配置" description="管理员正在配置支付宝、微信、Stripe 或 PayPal。配置完成后，本页面会自动显示充值套餐和支付方式。" /> : null}
                     <div>
                         <div className="mb-2 text-xs font-medium text-foreground/65">选择充值套餐</div>
                         <Radio.Group className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2" value={packageID} onChange={(event) => onPackageChange(event.target.value)}>

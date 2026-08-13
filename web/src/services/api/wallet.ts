@@ -14,7 +14,7 @@ export type CreditAccount = {
 export type CreditLedgerEntry = {
     id: string;
     userId: string;
-    type: "redeem" | "admin_grant" | "consume" | "refund" | "admin_adjustment" | "signup_bonus" | "checkin_bonus" | "payment" | "inspiration_purchase" | "inspiration_sale";
+    type: "redeem" | "admin_grant" | "reserve" | "consume" | "refund" | "admin_adjustment" | "signup_bonus" | "checkin_bonus" | "payment" | "inspiration_purchase" | "inspiration_sale" | "invite_reward" | "skill_purchase" | "skill_sale";
     amountMicrocredits: number;
     availableAfterMicrocredits: number;
     reservedAfterMicrocredits: number;
@@ -42,9 +42,15 @@ export type WalletSummary = {
 export type CreditPolicy = {
     signupBonusMicrocredits: number;
     checkinBonusMicrocredits: number;
+    inviteEnabled: boolean;
+    inviterRewardMicrocredits: number;
+    inviteeRewardMicrocredits: number;
     defaultMultiplierBasisPoints: number;
     modelMultiplierBasisPoints: Record<string, number>;
 };
+
+export type GoogleOAuthSetting = { enabled: boolean; clientId: string; clientSecret?: string; hasClientSecret: boolean; redirectUrl: string; updatedAt?: string };
+export type InviteSummary = { code: string; invitedCount: number; inviterRewardMicrocredits: number; inviteeRewardMicrocredits: number; enabled: boolean };
 
 export type ChannelModel = {
     id: string;
@@ -244,6 +250,10 @@ export function checkinCredits() {
     return request<{ account: CreditAccount; granted: boolean }>(api.post("/wallet/checkin"));
 }
 
+export function getInviteSummary() {
+    return request<InviteSummary>(api.get("/invite"));
+}
+
 export function getPaymentCatalog() {
     return request<{ catalog: PaymentCatalog }>(api.get("/payments/catalog"));
 }
@@ -282,6 +292,13 @@ export function getAdminLinuxDOSetting() {
 
 export function updateAdminLinuxDOSetting(input: Partial<LinuxDOSetting>) {
     return request<{ setting: LinuxDOSetting }>(api.patch("/admin/settings/linuxdo", input));
+}
+
+export function getAdminGoogleOAuthSetting() {
+    return request<{ setting: GoogleOAuthSetting }>(api.get("/admin/settings/google"));
+}
+export function updateAdminGoogleOAuthSetting(input: Partial<GoogleOAuthSetting>) {
+    return request<{ setting: GoogleOAuthSetting }>(api.patch("/admin/settings/google", input));
 }
 
 export function getAdminRegistrationSetting() {

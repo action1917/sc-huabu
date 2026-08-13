@@ -4,35 +4,44 @@ import { ChevronDown, KeyRound, LockKeyhole, ShieldCheck, UserPlus } from "lucid
 
 import {
     getAdminLinuxDOSetting,
+    getAdminGoogleOAuthSetting,
     getAdminRegistrationSetting,
     updateAdminLinuxDOSetting,
+    updateAdminGoogleOAuthSetting,
     updateAdminRegistrationSetting,
     type LinuxDOSetting,
+    type GoogleOAuthSetting,
     type RegistrationSetting,
 } from "@/services/api/wallet";
 import { configuredSecretText, SettingsSectionCard } from "./admin-ui";
 
 type LinuxDOFormValues = Omit<LinuxDOSetting, "hasClientSecret" | "updatedAt">;
+type GoogleFormValues = Omit<GoogleOAuthSetting, "hasClientSecret" | "updatedAt">;
 
 export default function AccessSettingsPanel() {
     const { message } = App.useApp();
     const [linuxdo, setLinuxdo] = useState<LinuxDOSetting | null>(null);
     const [registration, setRegistration] = useState<RegistrationSetting | null>(null);
+    const [google, setGoogle] = useState<GoogleOAuthSetting | null>(null);
     const [loading, setLoading] = useState(true);
     const [savingLinuxDO, setSavingLinuxDO] = useState(false);
     const [savingRegistration, setSavingRegistration] = useState(false);
+    const [savingGoogle, setSavingGoogle] = useState(false);
     const [form] = Form.useForm<LinuxDOFormValues>();
+    const [googleForm] = Form.useForm<GoogleFormValues>();
 
     useEffect(() => {
-        void Promise.all([getAdminLinuxDOSetting(), getAdminRegistrationSetting()])
-            .then(([linuxdoData, registrationData]) => {
+        void Promise.all([getAdminLinuxDOSetting(), getAdminRegistrationSetting(), getAdminGoogleOAuthSetting()])
+            .then(([linuxdoData, registrationData, googleData]) => {
                 setLinuxdo(linuxdoData.setting);
                 setRegistration(registrationData.setting);
                 form.setFieldsValue({ ...linuxdoData.setting, clientSecret: "" });
+                setGoogle(googleData.setting);
+                googleForm.setFieldsValue({ ...googleData.setting, clientSecret: "" });
             })
             .catch((error) => message.error(error instanceof Error ? error.message : "读取登录配置失败"))
             .finally(() => setLoading(false));
-    }, [form, message]);
+    }, [form, googleForm, message]);
 
     const toggleRegistration = async (enabled: boolean) => {
         setSavingRegistration(true);
@@ -66,6 +75,21 @@ export default function AccessSettingsPanel() {
         }
     };
 
+    const saveGoogle = async () => {
+        const values = await googleForm.validateFields();
+        if (values.enabled && !values.clientSecret?.trim() && !google?.hasClientSecret) return message.error("启用 Google 登录前请填写 Client Secret");
+        setSavingGoogle(true);
+        try {
+            const data = await updateAdminGoogleOAuthSetting({ ...values, clientSecret: values.clientSecret?.trim() || "" });
+            setGoogle(data.setting);
+            googleForm.setFieldsValue({ ...data.setting, clientSecret: "" });
+            message.success("Google 邮箱登录配置已保存");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "保存 Google 登录配置失败");
+        } finally {
+            setSavingGoogle(false);
+        }
+    };
 
     return (
         <div className="space-y-4 pt-4">
@@ -86,10 +110,50 @@ export default function AccessSettingsPanel() {
 
             <SettingsSectionCard
                 icon={<KeyRound className="size-4" />}
+                title="Google 邮箱一键登录"
+                description="使用 Google OpenID Connect 验证邮箱并创建或登录速创账号。"
+                status={{ label: google?.enabled ? "运行中" : "未启用", color: google?.enabled ? "success" : "default" }}
+                footer={
+                    <>
+                        <span className="text-xs text-foreground/45">在 Google Cloud Console 中登记本站回调地址。</span>
+                        <Button type="primary" loading={savingGoogle} onClick={() => void saveGoogle()}>
+                            保存 Google 配置
+                        </Button>
+                    </>
+                }
+            >
+                <Form form={googleForm} layout="vertical" requiredMark={false} disabled={loading}>
+                    <div className="grid gap-x-5 gap-y-1 p-5 md:grid-cols-2">
+                        <Form.Item name="enabled" label="启用 Google 邮箱登录" valuePropName="checked">
+                            <Switch />
+                        </Form.Item>
+                        <div />
+                        <Form.Item name="clientId" label="Google Client ID">
+                            <Input autoComplete="off" placeholder="xxx.apps.googleusercontent.com" />
+                        </Form.Item>
+                        <Form.Item name="clientSecret" label={google?.hasClientSecret ? `Google Client Secret（${configuredSecretText}）` : "Google Client Secret"}>
+                            <Input.Password autoComplete="new-password" placeholder={google?.hasClientSecret ? "留空保留原密钥" : "填写客户端密钥"} />
+                        </Form.Item>
+                        <Form.Item className="md:col-span-2" name="redirectUrl" label="本站回调地址" extra="必须与 Google Cloud OAuth 客户端中的已获授权重定向 URI 完全一致。">
+                            <Input inputMode="url" placeholder="https://你的域名/oauth/google/callback" />
+                        </Form.Item>
+                    </div>
+                </Form>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+                icon={<KeyRound className="size-4" />}
                 title="Linux.do 单点登录"
                 description="连接 Linux.do OAuth，让用户使用社区账号登录。"
                 status={{ label: linuxdo?.enabled ? "运行中" : "未启用", color: linuxdo?.enabled ? "success" : "default" }}
-                footer={<><span className="text-xs text-foreground/45">Client Secret 加密保存，接口不会回显明文。</span><Button type="primary" loading={savingLinuxDO} onClick={() => void saveLinuxDO()}>保存登录配置</Button></>}
+                footer={
+                    <>
+                        <span className="text-xs text-foreground/45">Client Secret 加密保存，接口不会回显明文。</span>
+                        <Button type="primary" loading={savingLinuxDO} onClick={() => void saveLinuxDO()}>
+                            保存登录配置
+                        </Button>
+                    </>
+                }
             >
                 <Form form={form} layout="vertical" requiredMark={false} disabled={loading}>
                     <div>
@@ -101,7 +165,12 @@ export default function AccessSettingsPanel() {
                                 <Switch />
                             </Form.Item>
                             <Form.Item name="clientAuthMethod" label="Token 请求鉴权方式" rules={[{ required: true, message: "请选择鉴权方式" }]} extra="Linux.do 应用未特别要求时使用 Client Secret Post。">
-                                <Select options={[{ label: "Client Secret Post（推荐）", value: "client_secret_post" }, { label: "Client Secret Basic", value: "client_secret_basic" }]} />
+                                <Select
+                                    options={[
+                                        { label: "Client Secret Post（推荐）", value: "client_secret_post" },
+                                        { label: "Client Secret Basic", value: "client_secret_basic" },
+                                    ]}
+                                />
                             </Form.Item>
                             <Form.Item name="clientId" label="Client ID">
                                 <Input autoComplete="off" placeholder="Linux.do OAuth 应用的 Client ID" />
@@ -159,14 +228,17 @@ export default function AccessSettingsPanel() {
                             </div>
                         </details>
                     </div>
-
                 </Form>
             </SettingsSectionCard>
-
         </div>
     );
 }
 
 function FormSectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
-    return <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground/85">{icon}{title}</div>;
+    return (
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground/85">
+            {icon}
+            {title}
+        </div>
+    );
 }

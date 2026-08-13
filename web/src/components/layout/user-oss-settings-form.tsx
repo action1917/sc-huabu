@@ -7,13 +7,14 @@ import { useUserStore } from "@/stores/use-user-store";
 
 type OSSFormValues = {
     enabled?: boolean;
-    provider: "aliyun";
+    provider: "aliyun" | "tencent" | "qiniu";
     region?: string;
     endpoint?: string;
     bucket?: string;
     accessKeyId?: string;
     accessKeySecret?: string;
     pathPrefix?: string;
+    publicBaseUrl?: string;
 };
 
 export function UserOSSSettingsForm() {
@@ -23,6 +24,8 @@ export function UserOSSSettingsForm() {
     const [setting, setSetting] = useState<UserOSSSetting | null>(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const provider = Form.useWatch("provider", form) || "aliyun";
+    const enabled = Form.useWatch("enabled", form) === true;
     const savedAt = formatSavedAt(setting?.updatedAt);
 
     useEffect(() => {
@@ -48,6 +51,12 @@ export function UserOSSSettingsForm() {
 
     const save = async () => {
         const values = await form.validateFields();
+        if (values.enabled && values.provider === "aliyun" && !values.endpoint?.trim()) return message.error("请填写阿里云 OSS Endpoint");
+        if (values.enabled && values.provider === "tencent" && !values.endpoint?.trim() && !values.region?.trim()) return message.error("请填写腾讯云 COS Region 或 Endpoint");
+        if (values.enabled && values.provider === "qiniu" && !values.publicBaseUrl?.trim()) return message.error("请填写七牛云下载域名");
+        if (values.enabled && !values.bucket?.trim()) return message.error("请填写 Bucket");
+        if (values.enabled && !values.accessKeyId?.trim()) return message.error("请填写 AccessKey ID");
+        if (values.enabled && !values.accessKeySecret?.trim() && !setting?.hasAccessKeySecret) return message.error("请填写 AccessKey Secret");
         setSaving(true);
         try {
             const data = await updateUserOSSSetting({
@@ -59,6 +68,7 @@ export function UserOSSSettingsForm() {
                 accessKeyId: values.accessKeyId?.trim() || "",
                 accessKeySecret: values.accessKeySecret?.trim() || "",
                 pathPrefix: values.pathPrefix?.trim() || "",
+                publicBaseUrl: values.publicBaseUrl?.trim() || "",
             });
             setSetting(data.setting);
             form.setFieldsValue(toFormValues(data.setting));
@@ -93,13 +103,19 @@ export function UserOSSSettingsForm() {
                     <Switch checkedChildren="启用" unCheckedChildren="停用" />
                 </Form.Item>
                 <Form.Item name="provider" label="存储服务" rules={[{ required: true, message: "请选择存储服务" }]} className="mb-3">
-                    <Select options={[{ label: "阿里云 OSS", value: "aliyun" }]} />
+                    <Select
+                        options={[
+                            { label: "阿里云 OSS", value: "aliyun" },
+                            { label: "腾讯云 COS", value: "tencent" },
+                            { label: "七牛云 Kodo", value: "qiniu" },
+                        ]}
+                    />
                 </Form.Item>
                 <Form.Item name="region" label="Region" className="mb-3">
-                    <Input spellCheck={false} placeholder="oss-cn-hangzhou" />
+                    <Input spellCheck={false} placeholder={regionPlaceholder(provider)} />
                 </Form.Item>
                 <Form.Item name="endpoint" label="Endpoint" className="mb-3">
-                    <Input inputMode="url" spellCheck={false} placeholder="https://oss-cn-hangzhou.aliyuncs.com" />
+                    <Input inputMode="url" spellCheck={false} placeholder={endpointPlaceholder(provider)} />
                 </Form.Item>
                 <Form.Item name="bucket" label="Bucket" className="mb-3">
                     <Input spellCheck={false} placeholder="my-canvas-assets" />
@@ -108,10 +124,13 @@ export function UserOSSSettingsForm() {
                     <Input spellCheck={false} placeholder="infinite-canvas" />
                 </Form.Item>
                 <Form.Item name="accessKeyId" label="AccessKey ID" className="mb-3 xl:col-span-1">
-                    <Input autoComplete="off" spellCheck={false} placeholder="阿里云 AccessKey ID" />
+                    <Input autoComplete="off" spellCheck={false} placeholder={`${providerLabel(provider)} AccessKey ID`} />
                 </Form.Item>
                 <Form.Item name="accessKeySecret" label={setting?.hasAccessKeySecret ? "AccessKey Secret（留空保留）" : "AccessKey Secret"} className="mb-3 xl:col-span-2">
-                    <Input.Password autoComplete="new-password" spellCheck={false} placeholder={setting?.hasAccessKeySecret ? "留空保留已加密密钥" : "阿里云 AccessKey Secret"} />
+                    <Input.Password autoComplete="new-password" spellCheck={false} placeholder={setting?.hasAccessKeySecret ? "留空保留已加密密钥" : `${providerLabel(provider)} AccessKey Secret`} />
+                </Form.Item>
+                <Form.Item name="publicBaseUrl" label={`下载域名${provider === "qiniu" && enabled ? "（必填）" : "（选填）"}`} className="mb-3 xl:col-span-3">
+                    <Input inputMode="url" placeholder="https://cdn.example.com" />
                 </Form.Item>
             </div>
 
@@ -123,6 +142,20 @@ export function UserOSSSettingsForm() {
             </div>
         </Form>
     );
+}
+
+function providerLabel(provider: OSSFormValues["provider"]) {
+    return provider === "tencent" ? "腾讯云 COS" : provider === "qiniu" ? "七牛云 Kodo" : "阿里云 OSS";
+}
+
+function regionPlaceholder(provider: OSSFormValues["provider"]) {
+    return provider === "tencent" ? "ap-guangzhou" : provider === "aliyun" ? "oss-cn-hangzhou" : "选填";
+}
+
+function endpointPlaceholder(provider: OSSFormValues["provider"]) {
+    if (provider === "tencent") return "选填；留空时按 Region 自动生成";
+    if (provider === "qiniu") return "选填；默认 https://up.qiniup.com";
+    return "https://oss-cn-hangzhou.aliyuncs.com";
 }
 
 function formatSavedAt(value?: string) {
@@ -142,5 +175,6 @@ function toFormValues(setting: UserOSSSetting): OSSFormValues {
         accessKeyId: setting.accessKeyId,
         accessKeySecret: "",
         pathPrefix: setting.pathPrefix,
+        publicBaseUrl: setting.publicBaseUrl,
     };
 }

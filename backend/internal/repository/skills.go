@@ -3,12 +3,67 @@ package repository
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"infinite-canvas/backend/internal/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func (r *Repository) SkillPurchased(userID, skillID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.SkillPurchase{}).Where("buyer_user_id = ? AND skill_id = ?", userID, skillID).Count(&count).Error
+	return count > 0, err
+}
+
+// PurchaseSkill 与灵感购买保持同一账务合同：购买凭证、扣款、作者入账和双方流水同事务提交。
+func (r *Repository) PurchaseSkill(skill *model.Skill, buyerUserID string) (bool, error) {
+	if skill == nil || skill.PriceMicrocredits <= 0 || skill.OwnerID == buyerUserID {
+		return false, nil
+	}
+	purchased := false
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		purchase := model.SkillPurchase{ID: newRepositoryID(), SkillID: skill.ID, BuyerUserID: buyerUserID, SellerUserID: skill.OwnerID, PriceMicrocredits: skill.PriceMicrocredits, CreatedAt: time.Now()}
+		created := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "skill_id"}, {Name: "buyer_user_id"}}, DoNothing: true}).Create(&purchase)
+		if created.Error != nil {
+			return created.Error
+		}
+		if created.RowsAffected == 0 {
+			return nil
+		}
+		for _, uid := range []string{buyerUserID, skill.OwnerID} {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CreditAccount{UserID: uid}).Error; err != nil {
+				return err
+			}
+		}
+		updated := tx.Model(&model.CreditAccount{}).Where("user_id = ? AND available_microcredits >= ?", buyerUserID, skill.PriceMicrocredits).Updates(map[string]any{"available_microcredits": gorm.Expr("available_microcredits - ?", skill.PriceMicrocredits), "version": gorm.Expr("version + 1"), "updated_at": time.Now()})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return ErrInsufficientCredits
+		}
+		if err := tx.Model(&model.CreditAccount{}).Where("user_id = ?", skill.OwnerID).Updates(map[string]any{"available_microcredits": gorm.Expr("available_microcredits + ?", skill.PriceMicrocredits), "version": gorm.Expr("version + 1"), "updated_at": time.Now()}).Error; err != nil {
+			return err
+		}
+		var buyer, seller model.CreditAccount
+		if err := tx.First(&buyer, "user_id = ?", buyerUserID).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&seller, "user_id = ?", skill.OwnerID).Error; err != nil {
+			return err
+		}
+		buyRef, sellRef := "skill:buy:"+purchase.ID, "skill:sell:"+purchase.ID
+		entries := []model.CreditLedgerEntry{{ID: newRepositoryID(), UserID: buyerUserID, Type: model.CreditLedgerSkillPurchase, AmountMicrocredits: -skill.PriceMicrocredits, AvailableDeltaMicrocredits: -skill.PriceMicrocredits, AvailableAfterMicrocredits: buyer.AvailableMicrocredits, ReservedAfterMicrocredits: buyer.ReservedMicrocredits, Scene: "skill", Note: "购买技能：" + skill.Name, ReferenceKey: &buyRef, CreatedAt: time.Now()}, {ID: newRepositoryID(), UserID: skill.OwnerID, Type: model.CreditLedgerSkillSale, AmountMicrocredits: skill.PriceMicrocredits, AvailableDeltaMicrocredits: skill.PriceMicrocredits, AvailableAfterMicrocredits: seller.AvailableMicrocredits, ReservedAfterMicrocredits: seller.ReservedMicrocredits, Scene: "skill", Note: "技能售出：" + skill.Name, ReferenceKey: &sellRef, CreatedAt: time.Now()}}
+		if err := tx.Create(&entries).Error; err != nil {
+			return err
+		}
+		purchased = true
+		return nil
+	})
+	return purchased, err
+}
 
 type SkillListFilter struct {
 	UserID string

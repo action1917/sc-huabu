@@ -15,10 +15,13 @@ import (
 const creditPolicySettingKey = "credit_policy"
 
 type CreditPolicy struct {
-	SignupBonusMicrocredits  int64            `json:"signupBonusMicrocredits"`
-	CheckinBonusMicrocredits int64            `json:"checkinBonusMicrocredits"`
-	DefaultMultiplierBPS     int64            `json:"defaultMultiplierBasisPoints"`
-	ModelMultiplierBPS       map[string]int64 `json:"modelMultiplierBasisPoints"`
+	SignupBonusMicrocredits   int64            `json:"signupBonusMicrocredits"`
+	CheckinBonusMicrocredits  int64            `json:"checkinBonusMicrocredits"`
+	InviteEnabled             bool             `json:"inviteEnabled"`
+	InviterRewardMicrocredits int64            `json:"inviterRewardMicrocredits"`
+	InviteeRewardMicrocredits int64            `json:"inviteeRewardMicrocredits"`
+	DefaultMultiplierBPS      int64            `json:"defaultMultiplierBasisPoints"`
+	ModelMultiplierBPS        map[string]int64 `json:"modelMultiplierBasisPoints"`
 }
 
 type PublicCreditPolicy struct {
@@ -28,15 +31,18 @@ type PublicCreditPolicy struct {
 }
 
 func defaultCreditPolicy() CreditPolicy {
-	return CreditPolicy{SignupBonusMicrocredits: 100 * CreditScale, CheckinBonusMicrocredits: 10 * CreditScale, DefaultMultiplierBPS: 10_000, ModelMultiplierBPS: map[string]int64{}}
+	return CreditPolicy{SignupBonusMicrocredits: 100 * CreditScale, CheckinBonusMicrocredits: 10 * CreditScale, InviteEnabled: true, InviterRewardMicrocredits: 50 * CreditScale, InviteeRewardMicrocredits: 20 * CreditScale, DefaultMultiplierBPS: 10_000, ModelMultiplierBPS: map[string]int64{}}
 }
 
 func validateCreditPolicy(policy CreditPolicy) error {
-	if policy.SignupBonusMicrocredits < 0 || policy.CheckinBonusMicrocredits < 0 {
-		return BadAuthRequest("注册和签到奖励不能小于 0")
+	if policy.SignupBonusMicrocredits < 0 || policy.CheckinBonusMicrocredits < 0 || policy.InviterRewardMicrocredits < 0 || policy.InviteeRewardMicrocredits < 0 {
+		return BadAuthRequest("注册、签到和邀请奖励不能小于 0")
 	}
 	if policy.SignupBonusMicrocredits > 1_000_000*CreditScale || policy.CheckinBonusMicrocredits > 100_000*CreditScale {
 		return BadAuthRequest("积分奖励超出允许范围")
+	}
+	if policy.InviterRewardMicrocredits > 100_000*CreditScale || policy.InviteeRewardMicrocredits > 100_000*CreditScale {
+		return BadAuthRequest("邀请积分奖励超出允许范围")
 	}
 	if policy.DefaultMultiplierBPS <= 0 || policy.DefaultMultiplierBPS > 1_000_000 {
 		return BadAuthRequest("默认模型倍率必须在 0.0001-100 之间")
@@ -57,7 +63,7 @@ func (s *Service) creditPolicy() (CreditPolicy, error) {
 	if err != nil {
 		return CreditPolicy{}, err
 	}
-	var policy CreditPolicy
+	policy := defaultCreditPolicy()
 	if json.Unmarshal([]byte(setting.ValueJSON), &policy) != nil {
 		return CreditPolicy{}, errors.New("积分策略配置格式无效")
 	}

@@ -37,6 +37,8 @@ export type Skill = {
     extra_info: string;
     is_added: boolean;
     is_owner: boolean;
+    price_microcredits: number;
+    unlocked: boolean;
 };
 
 export type SkillCategory = { value: string; label: string };
@@ -69,8 +71,8 @@ export type SkillMutationInput = {
     markdown_url: string;
     showcase_media: SkillShowcaseMedia[];
     extra_info: string;
+    price_microcredits: number;
 };
-
 
 export function listSkills(input: ListSkillsInput = {}) {
     const params = serializeApiParams(compactApiParams(input as ApiParams));
@@ -111,4 +113,8 @@ export function likeSkill(id: string) {
 
 export function unlikeSkill(id: string) {
     return request<{ skill: Skill }>(api.delete(`/skills/${encodeURIComponent(id)}/like`));
+}
+
+export function unlockSkill(id: string) {
+    return request<{ unlocked: boolean; purchased: boolean }>(api.post(`/skills/${encodeURIComponent(id)}/unlock`));
 }

@@ -11,6 +11,37 @@ import (
 )
 
 func RegisterFinanceRoutes(r *gin.RouterGroup, svc *service.Service) {
+	r.GET("/admin/settings/google", func(c *gin.Context) {
+		u, e := currentUser(c, svc)
+		if e != nil {
+			failService(c, e)
+			return
+		}
+		setting, e := svc.AdminGoogleOAuthSetting(u)
+		if e != nil {
+			failService(c, e)
+			return
+		}
+		ok(c, gin.H{"setting": setting})
+	})
+	r.PATCH("/admin/settings/google", func(c *gin.Context) {
+		u, e := currentUser(c, svc)
+		if e != nil {
+			failService(c, e)
+			return
+		}
+		var req service.GoogleOAuthSettingRequest
+		if c.ShouldBindJSON(&req) != nil {
+			fail(c, http.StatusBadRequest, service.BadAuthRequest("Google 配置格式无效"))
+			return
+		}
+		setting, e := svc.UpdateGoogleOAuthSetting(u, req)
+		if e != nil {
+			failService(c, e)
+			return
+		}
+		ok(c, gin.H{"setting": setting})
+	})
 	r.GET("/wallet", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {
@@ -25,6 +56,19 @@ func RegisterFinanceRoutes(r *gin.RouterGroup, svc *service.Service) {
 			return
 		}
 		ok(c, wallet)
+	})
+	r.GET("/invite", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		summary, err := svc.InviteSummary(user)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, summary)
 	})
 	r.POST("/wallet/redeem", func(c *gin.Context) {
 		user, err := currentUser(c, svc)

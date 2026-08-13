@@ -37,6 +37,7 @@ type RegisterRequest struct {
 	EmailCode   string `json:"emailCode"`
 	DisplayName string `json:"displayName"`
 	Password    string `json:"password"`
+	InviteCode  string `json:"inviteCode"`
 }
 
 type LoginRequest struct {
@@ -50,6 +51,7 @@ type PublicAuthSettings struct {
 	LinuxDOEnabled      bool `json:"linuxdoEnabled"`
 	EmailEnabled        bool `json:"emailEnabled"`
 	EmailCodeRequired   bool `json:"emailCodeRequired"`
+	GoogleEnabled       bool `json:"googleEnabled"`
 }
 
 type AuthSessionResult struct {
@@ -94,7 +96,7 @@ func (s *Service) PublicAuthSettings() (*PublicAuthSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &PublicAuthSettings{FirstUser: false, RegistrationEnabled: registrationEnabled, LinuxDOEnabled: s.LinuxDOEnabled(), EmailEnabled: emailEnabled, EmailCodeRequired: true}, nil
+	return &PublicAuthSettings{FirstUser: false, RegistrationEnabled: registrationEnabled, LinuxDOEnabled: s.LinuxDOEnabled(), GoogleEnabled: s.GoogleOAuthEnabled(), EmailEnabled: emailEnabled, EmailCodeRequired: true}, nil
 }
 
 func (s *Service) Register(req RegisterRequest) (*AuthSessionResult, error) {
@@ -117,6 +119,11 @@ func (s *Service) Register(req RegisterRequest) (*AuthSessionResult, error) {
 	count, err := s.repo.UserCount()
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(req.InviteCode) != "" && count > 0 {
+		if _, _, err := s.validateInviteCode("", req.InviteCode); err != nil {
+			return nil, err
+		}
 	}
 	var verifiedCode *model.EmailVerificationCode
 	if count > 0 {
@@ -174,6 +181,9 @@ func (s *Service) Register(req RegisterRequest) (*AuthSessionResult, error) {
 		return nil, err
 	}
 	if err := s.ensureSignupBonus(user.ID); err != nil {
+		return nil, err
+	}
+	if err := s.applyInviteCode(user.ID, req.InviteCode); err != nil {
 		return nil, err
 	}
 	return s.createAuthSession(&user)
@@ -244,7 +254,10 @@ func (s *Service) CurrentUser(cookieValue string) (*model.User, error) {
 // 认证响应只补充当前用户自己的第三方公开身份，不把身份表或密钥字段暴露给其他列表接口。
 func (s *Service) PublicAuthUser(user *model.User) (AuthUser, error) {
 	result := AuthUser{User: *user}
-	identity, err := s.repo.UserIdentityForUser(user.ID, "linuxdo")
+	identity, err := s.repo.UserIdentityForUser(user.ID, "google")
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		identity, err = s.repo.UserIdentityForUser(user.ID, "linuxdo")
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return result, nil
 	}

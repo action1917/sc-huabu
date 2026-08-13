@@ -1,4 +1,4 @@
-import { App, Button, Drawer, Form, Input, Select, Switch } from "antd";
+import { App, Button, Drawer, Form, Input, InputNumber, Select, Switch } from "antd";
 import { Minus, Plus, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -24,6 +24,7 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
             markdown_url: skill?.markdown_url || "",
             showcase_media: skill?.showcase_media || [],
             extra_info: skill?.extra_info || "",
+            price_microcredits: skill?.price_microcredits || 0,
         });
         setDirty(false);
     }, [form, open, skill]);
@@ -48,6 +49,7 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                 markdown_url: values.markdown_url || "",
                 showcase_media: (values.showcase_media || []).map((item) => ({ ...item, showcase_uri: item.showcase_uri || "" })),
                 extra_info: values.extra_info || "",
+                price_microcredits: values.is_public ? values.price_microcredits || 0 : 0,
             };
             const result = skill ? await updateSkill(skill.skill_id, input) : await createSkill(input);
             setDirty(false);
@@ -61,10 +63,30 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
     };
 
     return (
-        <Drawer className="library-drawer" open={open} size={720} destroyOnHidden maskClosable={!dirty} title={skill ? "编辑技能" : "创建技能"} onClose={requestClose} extra={<Button type="primary" loading={saving} icon={<Save className="size-4" />} onClick={() => form.submit()}>保存技能</Button>}>
+        <Drawer
+            className="library-drawer"
+            open={open}
+            size={720}
+            destroyOnHidden
+            maskClosable={!dirty}
+            title={skill ? "编辑技能" : "创建技能"}
+            onClose={requestClose}
+            extra={
+                <Button type="primary" loading={saving} icon={<Save className="size-4" />} onClick={() => form.submit()}>
+                    保存技能
+                </Button>
+            }
+        >
             <Form form={form} layout="vertical" requiredMark="optional" onFinish={submit} onValuesChange={() => setDirty(true)}>
                 <div className="grid gap-x-4 sm:grid-cols-2">
-                    <Form.Item name="skill_name" label="技能名称" rules={[{ required: true, message: "请填写技能名称" }, { max: 80, message: "最多 80 个字符" }]}>
+                    <Form.Item
+                        name="skill_name"
+                        label="技能名称"
+                        rules={[
+                            { required: true, message: "请填写技能名称" },
+                            { max: 80, message: "最多 80 个字符" },
+                        ]}
+                    >
                         <Input maxLength={80} showCount placeholder="例如：短剧导演分镜" autoComplete="off" />
                     </Form.Item>
                     <Form.Item name="tag" label="技能分类" rules={[{ required: true, message: "请选择技能分类" }]}>
@@ -72,11 +94,26 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                     </Form.Item>
                 </div>
 
-                <Form.Item name="description" label="技能简介" rules={[{ required: true, message: "请填写技能简介" }, { max: 500, message: "最多 500 个字符" }]}>
+                <Form.Item
+                    name="description"
+                    label="技能简介"
+                    rules={[
+                        { required: true, message: "请填写技能简介" },
+                        { max: 500, message: "最多 500 个字符" },
+                    ]}
+                >
                     <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} maxLength={500} showCount placeholder="说明适用场景、输入条件和最终产出" />
                 </Form.Item>
 
-                <Form.Item name="instruction" label="技能指令" rules={[{ required: true, message: "请填写技能指令" }, { max: 100000, message: "最多 100000 个字符" }]} extra="画布引用该技能时会把这段指令发送给模型。">
+                <Form.Item
+                    name="instruction"
+                    label="技能指令"
+                    rules={[
+                        { required: true, message: "请填写技能指令" },
+                        { max: 100000, message: "最多 100000 个字符" },
+                    ]}
+                    extra="画布引用该技能时会把这段指令发送给模型。"
+                >
                     <Input.TextArea className="font-mono text-xs leading-5" autoSize={{ minRows: 14, maxRows: 28 }} maxLength={100000} showCount placeholder="使用 Markdown 编写角色、约束、流程、检查清单和输出格式" />
                 </Form.Item>
 
@@ -88,25 +125,56 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                         <Switch checkedChildren="公开" unCheckedChildren="私有" />
                     </Form.Item>
                 </div>
+                <Form.Item
+                    name="price_microcredits"
+                    label="使用价格（积分）"
+                    extra="填 0 为免费；收费技能会在用户确认后扣除积分并写入双方积分流水。"
+                    getValueProps={(value) => ({ value: Number(value || 0) / 1_000_000 })}
+                    normalize={(value) => Math.round(Number(value || 0) * 1_000_000)}
+                >
+                    <InputNumber className="w-full" min={0} max={100000} precision={6} />
+                </Form.Item>
 
                 <Form.List name="showcase_media">
                     {(fields, { add, remove }) => (
                         <section aria-labelledby="skill-media-title">
                             <div className="mb-3 flex items-center justify-between">
-                                <div><h3 id="skill-media-title" className="text-sm font-medium">展示媒体</h3><p className="mt-1 text-xs text-foreground/50">可选，最多 8 个公开图片或视频链接。</p></div>
-                                <Button disabled={fields.length >= 8} icon={<Plus className="size-4" />} onClick={() => add(emptyMedia())}>添加媒体</Button>
+                                <div>
+                                    <h3 id="skill-media-title" className="text-sm font-medium">
+                                        展示媒体
+                                    </h3>
+                                    <p className="mt-1 text-xs text-foreground/50">可选，最多 8 个公开图片或视频链接。</p>
+                                </div>
+                                <Button disabled={fields.length >= 8} icon={<Plus className="size-4" />} onClick={() => add(emptyMedia())}>
+                                    添加媒体
+                                </Button>
                             </div>
                             <div className="space-y-2">
                                 {fields.map((field) => (
                                     <div key={field.key} className="grid grid-cols-[112px_minmax(0,1fr)_36px] gap-2">
                                         <Form.Item {...field} name={[field.name, "type"]} className="mb-0" rules={[{ required: true, message: "选择类型" }]}>
-                                            <Select options={[{ value: "image", label: "图片" }, { value: "video", label: "视频" }]} />
+                                            <Select
+                                                options={[
+                                                    { value: "image", label: "图片" },
+                                                    { value: "video", label: "视频" },
+                                                ]}
+                                            />
                                         </Form.Item>
-                                        <Form.Item {...field} name={[field.name, "showcase_url"]} className="mb-0" rules={[{ required: true, message: "请填写媒体链接" }, { type: "url", message: "链接格式无效" }]}>
+                                        <Form.Item
+                                            {...field}
+                                            name={[field.name, "showcase_url"]}
+                                            className="mb-0"
+                                            rules={[
+                                                { required: true, message: "请填写媒体链接" },
+                                                { type: "url", message: "链接格式无效" },
+                                            ]}
+                                        >
                                             <Input type="url" inputMode="url" spellCheck={false} placeholder="https://example.com/media" />
                                         </Form.Item>
                                         <Button aria-label="移除媒体" title="移除媒体" icon={<Minus className="size-4" />} onClick={() => remove(field.name)} />
-                                        <Form.Item {...field} name={[field.name, "showcase_uri"]} hidden><Input /></Form.Item>
+                                        <Form.Item {...field} name={[field.name, "showcase_uri"]} hidden>
+                                            <Input />
+                                        </Form.Item>
                                     </div>
                                 ))}
                             </div>

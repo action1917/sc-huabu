@@ -39,29 +39,31 @@ type SkillEffectiveUser struct {
 }
 
 type SkillItem struct {
-	SkillID         string               `json:"skill_id"`
-	SkillName       string               `json:"skill_name"`
-	Description     string               `json:"description"`
-	Instruction     string               `json:"instruction,omitempty"`
-	Status          int                  `json:"status"`
-	MarkdownURL     string               `json:"markdown_url"`
-	CreateTime      int64                `json:"create_time"`
-	UpdateTime      int64                `json:"update_time"`
-	Source          int                  `json:"source"`
-	Tag             string               `json:"tag"`
-	SortWeight      int                  `json:"sort_weight"`
-	IsPrivate       bool                 `json:"is_private"`
-	LikeCount       int64                `json:"like_count"`
-	IsLike          bool                 `json:"is_like"`
-	OwnerUID        string               `json:"owner_uid"`
-	EffectiveUser   SkillEffectiveUser   `json:"effective_user"`
-	OriginalSkillID *string              `json:"original_skill_id"`
-	ShowcaseMedia   []SkillShowcaseMedia `json:"showcase_media"`
-	AddedCount      int64                `json:"added_count"`
-	IsTest          bool                 `json:"is_test"`
-	ExtraInfo       string               `json:"extra_info"`
-	IsAdded         bool                 `json:"is_added"`
-	IsOwner         bool                 `json:"is_owner"`
+	SkillID           string               `json:"skill_id"`
+	SkillName         string               `json:"skill_name"`
+	Description       string               `json:"description"`
+	Instruction       string               `json:"instruction,omitempty"`
+	Status            int                  `json:"status"`
+	MarkdownURL       string               `json:"markdown_url"`
+	CreateTime        int64                `json:"create_time"`
+	UpdateTime        int64                `json:"update_time"`
+	Source            int                  `json:"source"`
+	Tag               string               `json:"tag"`
+	SortWeight        int                  `json:"sort_weight"`
+	IsPrivate         bool                 `json:"is_private"`
+	LikeCount         int64                `json:"like_count"`
+	IsLike            bool                 `json:"is_like"`
+	OwnerUID          string               `json:"owner_uid"`
+	EffectiveUser     SkillEffectiveUser   `json:"effective_user"`
+	OriginalSkillID   *string              `json:"original_skill_id"`
+	ShowcaseMedia     []SkillShowcaseMedia `json:"showcase_media"`
+	AddedCount        int64                `json:"added_count"`
+	IsTest            bool                 `json:"is_test"`
+	ExtraInfo         string               `json:"extra_info"`
+	IsAdded           bool                 `json:"is_added"`
+	IsOwner           bool                 `json:"is_owner"`
+	PriceMicrocredits int64                `json:"price_microcredits"`
+	Unlocked          bool                 `json:"unlocked"`
 }
 
 type SkillCategory struct {
@@ -89,14 +91,15 @@ type SkillList struct {
 }
 
 type SkillMutationRequest struct {
-	SkillName     string               `json:"skill_name"`
-	Description   string               `json:"description"`
-	Instruction   string               `json:"instruction"`
-	Tag           string               `json:"tag"`
-	IsPrivate     bool                 `json:"is_private"`
-	MarkdownURL   string               `json:"markdown_url"`
-	ShowcaseMedia []SkillShowcaseMedia `json:"showcase_media"`
-	ExtraInfo     string               `json:"extra_info"`
+	SkillName         string               `json:"skill_name"`
+	Description       string               `json:"description"`
+	Instruction       string               `json:"instruction"`
+	Tag               string               `json:"tag"`
+	IsPrivate         bool                 `json:"is_private"`
+	MarkdownURL       string               `json:"markdown_url"`
+	ShowcaseMedia     []SkillShowcaseMedia `json:"showcase_media"`
+	ExtraInfo         string               `json:"extra_info"`
+	PriceMicrocredits int64                `json:"price_microcredits"`
 }
 
 func (s *Service) Skills(userID string, req SkillListRequest) (*SkillList, error) {
@@ -170,6 +173,7 @@ func (s *Service) CreateSkill(userID string, req SkillMutationRequest) (*SkillIt
 		MarkdownURL:       normalized.MarkdownURL,
 		ShowcaseMediaJSON: mediaJSON,
 		ExtraInfo:         normalized.ExtraInfo,
+		PriceMicrocredits: normalized.PriceMicrocredits,
 	}
 	state := &model.UserSkillState{ID: newID(), UserID: userID, SkillID: skill.ID, Added: true}
 	if err := s.repo.CreateSkill(skill, state); err != nil {
@@ -195,6 +199,7 @@ func (s *Service) UpdateSkill(userID string, id string, req SkillMutationRequest
 	skill.MarkdownURL = normalized.MarkdownURL
 	skill.ShowcaseMediaJSON = mediaJSON
 	skill.ExtraInfo = normalized.ExtraInfo
+	skill.PriceMicrocredits = normalized.PriceMicrocredits
 	if err := s.repo.Save(skill); err != nil {
 		return nil, err
 	}
@@ -219,6 +224,15 @@ func (s *Service) SetSkillAdded(userID string, id string, added bool) (*SkillIte
 			return nil, BadAuthRequest("自己创建的技能始终保留在我的技能中")
 		}
 		return s.SkillDetail(userID, id)
+	}
+	if added && skill.PriceMicrocredits > 0 {
+		unlocked, purchaseErr := s.repo.SkillPurchased(userID, skill.ID)
+		if purchaseErr != nil {
+			return nil, purchaseErr
+		}
+		if !unlocked {
+			return nil, &AuthError{Status: 402, Message: "请先确认支付积分并解锁该技能"}
+		}
 	}
 	state, err := s.skillState(userID, id)
 	if err != nil {
@@ -294,8 +308,15 @@ func (s *Service) skillItems(userID string, skills []model.Skill, includeInstruc
 		metric := metrics[skill.ID]
 		metric.LikeCount += skill.InitialLikeCount
 		metric.AddedCount += skill.InitialAddedCount
+		unlocked := skill.PriceMicrocredits == 0 || skill.OwnerID == userID
+		if !unlocked {
+			unlocked, err = s.repo.SkillPurchased(userID, skill.ID)
+			if err != nil {
+				return nil, err
+			}
+		}
 		instruction := ""
-		if includeInstruction {
+		if includeInstruction && unlocked {
 			instruction = skill.Instruction
 		}
 		items = append(items, SkillItem{
@@ -305,9 +326,25 @@ func (s *Service) skillItems(userID string, skills []model.Skill, includeInstruc
 			LikeCount: metric.LikeCount, IsLike: state.Liked, OwnerUID: skill.OwnerID,
 			EffectiveUser: SkillEffectiveUser{Name: ownerName, AvatarURL: ownerAvatarURL, UID: skill.OwnerID}, ShowcaseMedia: showcaseMedia,
 			AddedCount: metric.AddedCount, ExtraInfo: skill.ExtraInfo, IsAdded: state.Added || skill.OwnerID == userID, IsOwner: skill.OwnerID == userID,
+			PriceMicrocredits: skill.PriceMicrocredits, Unlocked: unlocked,
 		})
 	}
 	return items, nil
+}
+
+func (s *Service) UnlockSkill(userID, id string) (bool, error) {
+	skill, err := s.visibleSkill(userID, id)
+	if err != nil {
+		return false, err
+	}
+	if skill.PriceMicrocredits <= 0 || skill.OwnerID == userID {
+		return false, nil
+	}
+	purchased, err := s.repo.PurchaseSkill(skill, userID)
+	if errors.Is(err, repository.ErrInsufficientCredits) {
+		return false, BadAuthRequest("积分不足，无法解锁该技能")
+	}
+	return purchased, err
 }
 
 // 所有详情和关系写入都先经过同一可见性边界，避免私有技能通过加入、收藏或画布接口泄露正文。
@@ -405,6 +442,12 @@ func normalizeSkillMutationRequest(req SkillMutationRequest) (SkillMutationReque
 	}
 	if utf8.RuneCountInString(req.ExtraInfo) > 2000 {
 		return req, "", BadAuthRequest("补充信息不能超过 2000 个字符")
+	}
+	if req.PriceMicrocredits < 0 || req.PriceMicrocredits > maxInspirationPrice {
+		return req, "", BadAuthRequest("技能积分价格不合法")
+	}
+	if req.IsPrivate && req.PriceMicrocredits > 0 {
+		return req, "", BadAuthRequest("私有技能不能设置收费")
 	}
 	if len(req.ShowcaseMedia) > 8 {
 		return req, "", BadAuthRequest("展示媒体最多添加 8 个")

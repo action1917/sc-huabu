@@ -57,6 +57,7 @@ type Skill struct {
 	Tag               string    `json:"tag" gorm:"size:32;index"`
 	SortWeight        int       `json:"sortWeight" gorm:"index"`
 	IsPrivate         bool      `json:"isPrivate" gorm:"index"`
+	PriceMicrocredits int64     `json:"priceMicrocredits"`
 	MarkdownURL       string    `json:"markdownUrl" gorm:"size:500"`
 	ShowcaseMediaJSON string    `json:"-" gorm:"type:text"`
 	ExtraInfo         string    `json:"extraInfo" gorm:"type:text"`

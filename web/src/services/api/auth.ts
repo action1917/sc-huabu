@@ -111,8 +111,15 @@ export type AdminUserDetail = {
     account: { userId: string; availableMicrocredits: number; reservedMicrocredits: number; version: number };
     counts: { ledgerEntries: number; tasks: number; apiCalls: number; auditEvents: number };
     storageUsage: {
-        assetCount: number; assetBytes: number; canvasCount: number; canvasBytes: number;
-        sessionCount: number; sessionBytes: number; taskCount: number; taskBytes: number; apiCallCount: number;
+        assetCount: number;
+        assetBytes: number;
+        canvasCount: number;
+        canvasBytes: number;
+        sessionCount: number;
+        sessionBytes: number;
+        taskCount: number;
+        taskBytes: number;
+        apiCallCount: number;
     };
     storedFileBytes: number;
     dailyUploadBytes: number;
@@ -249,7 +256,7 @@ export type UserPromptPreference = {
 
 export type AdminOSSSetting = {
     enabled: boolean;
-    provider: "aliyun";
+    provider: "aliyun" | "tencent" | "qiniu";
     region: string;
     endpoint: string;
     bucket: string;
@@ -324,14 +331,18 @@ export type RuntimePolicySetting = {
     updatedAt?: string;
 };
 
-
 export function getAuthSettings() {
-    return request<{ firstUser: boolean; registrationEnabled: boolean; linuxdoEnabled: boolean; emailEnabled: boolean; emailCodeRequired: boolean }>(api.get("/auth/settings"));
+    return request<{ firstUser: boolean; registrationEnabled: boolean; linuxdoEnabled: boolean; googleEnabled: boolean; emailEnabled: boolean; emailCodeRequired: boolean }>(api.get("/auth/settings"));
 }
 
 export function linuxDOLoginURL(next: string) {
     const base = String(api.defaults.baseURL || "/api").replace(/\/$/, "");
     return `${base}/auth/linuxdo/start?next=${encodeURIComponent(next)}`;
+}
+
+export function googleLoginURL(next: string) {
+    const base = String(api.defaults.baseURL || "/api").replace(/\/$/, "");
+    return `${base}/auth/google/start?next=${encodeURIComponent(next)}`;
 }
 
 export function getAuthSession() {
@@ -362,7 +373,7 @@ export function sendRegistrationEmailCode(email: string) {
     return request<{ sent: boolean }>(api.post("/auth/email-code", { email }));
 }
 
-export function register(input: { username: string; email?: string; emailCode?: string; displayName?: string; password: string }) {
+export function register(input: { username: string; email?: string; emailCode?: string; displayName?: string; password: string; inviteCode?: string }) {
     return request<{ user: LocalUser }>(api.post("/auth/register", input));
 }
 
