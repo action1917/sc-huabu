@@ -17,11 +17,11 @@ import (
 const paymentSettingKey = "payments"
 
 type PaymentPackage struct {
-	ID                   string `json:"id"`
-	Name                 string `json:"name"`
-	CreditMicrocredits   int64  `json:"creditMicrocredits"`
-	CNYAmountMinor       int64  `json:"cnyAmountMinor"`
-	USDAmountMinor       int64  `json:"usdAmountMinor"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	CreditMicrocredits int64  `json:"creditMicrocredits"`
+	CNYAmountMinor     int64  `json:"cnyAmountMinor"`
+	USDAmountMinor     int64  `json:"usdAmountMinor"`
 }
 
 type AlipayPaymentSetting struct {
@@ -35,16 +35,16 @@ type AlipayPaymentSetting struct {
 }
 
 type WeChatPaymentSetting struct {
-	Enabled                 bool   `json:"enabled"`
-	AppID                   string `json:"appId"`
-	MerchantID              string `json:"merchantId"`
-	MerchantSerialNo        string `json:"merchantSerialNo"`
-	MerchantPrivateKey      string `json:"merchantPrivateKey,omitempty"`
-	APIV3Key                string `json:"apiV3Key,omitempty"`
-	PlatformPublicKeyID     string `json:"platformPublicKeyId"`
-	PlatformPublicKey       string `json:"platformPublicKey"`
-	HasMerchantPrivateKey   bool   `json:"hasMerchantPrivateKey,omitempty"`
-	HasAPIV3Key             bool   `json:"hasApiV3Key,omitempty"`
+	Enabled               bool   `json:"enabled"`
+	AppID                 string `json:"appId"`
+	MerchantID            string `json:"merchantId"`
+	MerchantSerialNo      string `json:"merchantSerialNo"`
+	MerchantPrivateKey    string `json:"merchantPrivateKey,omitempty"`
+	APIV3Key              string `json:"apiV3Key,omitempty"`
+	PlatformPublicKeyID   string `json:"platformPublicKeyId"`
+	PlatformPublicKey     string `json:"platformPublicKey"`
+	HasMerchantPrivateKey bool   `json:"hasMerchantPrivateKey,omitempty"`
+	HasAPIV3Key           bool   `json:"hasApiV3Key,omitempty"`
 }
 
 type StripePaymentSetting struct {
@@ -77,16 +77,16 @@ type GenericPaymentSetting struct {
 }
 
 type PaymentSetting struct {
-	Enabled  bool                    `json:"enabled"`
-	BaseURL  string                  `json:"baseUrl"`
-	Packages []PaymentPackage        `json:"packages"`
-	Alipay   AlipayPaymentSetting    `json:"alipay"`
-	WeChat   WeChatPaymentSetting    `json:"wechat"`
-	Stripe   StripePaymentSetting    `json:"stripe"`
-	PayPal   PayPalPaymentSetting    `json:"paypal"`
-	Generic  GenericPaymentSetting   `json:"generic"`
-	UpdatedBy string                 `json:"updatedBy,omitempty"`
-	UpdatedAt *time.Time             `json:"updatedAt,omitempty"`
+	Enabled   bool                  `json:"enabled"`
+	BaseURL   string                `json:"baseUrl"`
+	Packages  []PaymentPackage      `json:"packages"`
+	Alipay    AlipayPaymentSetting  `json:"alipay"`
+	WeChat    WeChatPaymentSetting  `json:"wechat"`
+	Stripe    StripePaymentSetting  `json:"stripe"`
+	PayPal    PayPalPaymentSetting  `json:"paypal"`
+	Generic   GenericPaymentSetting `json:"generic"`
+	UpdatedBy string                `json:"updatedBy,omitempty"`
+	UpdatedAt *time.Time            `json:"updatedAt,omitempty"`
 }
 
 func (s *Service) AdminPaymentSetting(actor *model.User) (*PaymentSetting, error) {
@@ -127,7 +127,10 @@ func (s *Service) UpdatePaymentSetting(actor *model.User, req PaymentSetting) (*
 		return nil, err
 	}
 	stored := next
-	for _, secret := range []struct{ target *string; value string }{
+	for _, secret := range []struct {
+		target *string
+		value  string
+	}{
 		{&stored.Alipay.MerchantPrivateKey, next.Alipay.MerchantPrivateKey},
 		{&stored.WeChat.MerchantPrivateKey, next.WeChat.MerchantPrivateKey},
 		{&stored.WeChat.APIV3Key, next.WeChat.APIV3Key},
@@ -185,7 +188,7 @@ func (s *Service) readPaymentSetting() (*model.SystemSetting, PaymentSetting, er
 func defaultPaymentSetting() PaymentSetting {
 	return PaymentSetting{
 		Packages: []PaymentPackage{},
-		Generic: GenericPaymentSetting{Name: "其他国际支付", Currency: "USD", APIKeyHeader: "Authorization"},
+		Generic:  GenericPaymentSetting{Name: "其他国际支付", Currency: "USD", APIKeyHeader: "Authorization"},
 	}
 }
 
@@ -320,15 +323,23 @@ func publicPaymentSetting(record *model.SystemSetting, value PaymentSetting) *Pa
 func paymentPackagePrice(item PaymentPackage, provider string, genericCurrency string) (string, int64, error) {
 	switch provider {
 	case "alipay", "wechat":
-		if item.CNYAmountMinor <= 0 { return "", 0, BadAuthRequest("该套餐未配置人民币价格") }
+		if item.CNYAmountMinor <= 0 {
+			return "", 0, BadAuthRequest("该套餐未配置人民币价格")
+		}
 		return "CNY", item.CNYAmountMinor, nil
 	case "stripe", "paypal":
-		if item.USDAmountMinor <= 0 { return "", 0, BadAuthRequest("该套餐未配置美元价格") }
+		if item.USDAmountMinor <= 0 {
+			return "", 0, BadAuthRequest("该套餐未配置美元价格")
+		}
 		return "USD", item.USDAmountMinor, nil
 	case "generic":
 		currency := strings.ToUpper(genericCurrency)
-		if currency == "CNY" && item.CNYAmountMinor > 0 { return currency, item.CNYAmountMinor, nil }
-		if currency == "USD" && item.USDAmountMinor > 0 { return currency, item.USDAmountMinor, nil }
+		if currency == "CNY" && item.CNYAmountMinor > 0 {
+			return currency, item.CNYAmountMinor, nil
+		}
+		if currency == "USD" && item.USDAmountMinor > 0 {
+			return currency, item.USDAmountMinor, nil
+		}
 		return "", 0, fmt.Errorf("通用支付当前货币 %s 未配置套餐价格", currency)
 	default:
 		return "", 0, BadAuthRequest("不支持的支付渠道")

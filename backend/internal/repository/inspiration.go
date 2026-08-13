@@ -106,16 +106,24 @@ func (r *Repository) PurchaseInspiration(item *model.Inspiration, buyerUserID st
 			return err
 		}
 		var buyerAccount, sellerAccount model.CreditAccount
-		if err := tx.First(&buyerAccount, "user_id = ?", buyerUserID).Error; err != nil { return err }
-		if err := tx.First(&sellerAccount, "user_id = ?", item.OwnerUserID).Error; err != nil { return err }
+		if err := tx.First(&buyerAccount, "user_id = ?", buyerUserID).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&sellerAccount, "user_id = ?", item.OwnerUserID).Error; err != nil {
+			return err
+		}
 		buyerReference := "inspiration:buy:" + purchase.ID
 		sellerReference := "inspiration:sell:" + purchase.ID
 		entries := []model.CreditLedgerEntry{
 			{ID: newRepositoryID(), UserID: buyerUserID, Type: model.CreditLedgerInspirationPurchase, AmountMicrocredits: -item.PriceMicrocredits, AvailableDeltaMicrocredits: -item.PriceMicrocredits, AvailableAfterMicrocredits: buyerAccount.AvailableMicrocredits, ReservedAfterMicrocredits: buyerAccount.ReservedMicrocredits, Scene: "inspiration", Note: "购买灵感：" + item.Title, ReferenceKey: &buyerReference},
 			{ID: newRepositoryID(), UserID: item.OwnerUserID, Type: model.CreditLedgerInspirationSale, AmountMicrocredits: item.PriceMicrocredits, AvailableDeltaMicrocredits: item.PriceMicrocredits, AvailableAfterMicrocredits: sellerAccount.AvailableMicrocredits, ReservedAfterMicrocredits: sellerAccount.ReservedMicrocredits, Scene: "inspiration", Note: "灵感售出：" + item.Title, ReferenceKey: &sellerReference},
 		}
-		if err := tx.Create(&entries).Error; err != nil { return err }
-		if err := tx.Model(&model.Inspiration{}).Where("id = ?", item.ID).UpdateColumn("copy_count", gorm.Expr("copy_count + 1")).Error; err != nil { return err }
+		if err := tx.Create(&entries).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.Inspiration{}).Where("id = ?", item.ID).UpdateColumn("copy_count", gorm.Expr("copy_count + 1")).Error; err != nil {
+			return err
+		}
 		purchased = true
 		return nil
 	})

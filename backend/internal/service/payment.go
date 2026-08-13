@@ -53,11 +53,21 @@ func (s *Service) PaymentCatalog(user *model.User) (*PublicPaymentCatalog, error
 	if !setting.Enabled {
 		return catalog, nil
 	}
-	if setting.Alipay.Enabled { catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "alipay", Name: "支付宝", Currency: "CNY", Mode: "redirect"}) }
-	if setting.WeChat.Enabled { catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "wechat", Name: "微信支付", Currency: "CNY", Mode: "qrcode"}) }
-	if setting.Stripe.Enabled { catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "stripe", Name: "Stripe", Currency: "USD", Mode: "redirect"}) }
-	if setting.PayPal.Enabled { catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "paypal", Name: "PayPal", Currency: "USD", Mode: "redirect"}) }
-	if setting.Generic.Enabled { catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "generic", Name: firstNonEmpty(setting.Generic.Name, "其他国际支付"), Currency: setting.Generic.Currency, Mode: "redirect"}) }
+	if setting.Alipay.Enabled {
+		catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "alipay", Name: "支付宝", Currency: "CNY", Mode: "redirect"})
+	}
+	if setting.WeChat.Enabled {
+		catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "wechat", Name: "微信支付", Currency: "CNY", Mode: "qrcode"})
+	}
+	if setting.Stripe.Enabled {
+		catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "stripe", Name: "Stripe", Currency: "USD", Mode: "redirect"})
+	}
+	if setting.PayPal.Enabled {
+		catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "paypal", Name: "PayPal", Currency: "USD", Mode: "redirect"})
+	}
+	if setting.Generic.Enabled {
+		catalog.Providers = append(catalog.Providers, PublicPaymentProvider{Key: "generic", Name: firstNonEmpty(setting.Generic.Name, "其他国际支付"), Currency: setting.Generic.Currency, Mode: "redirect"})
+	}
 	return catalog, nil
 }
 
@@ -117,12 +127,16 @@ func (s *Service) CreatePayment(ctx context.Context, user *model.User, req Creat
 }
 
 func (s *Service) PaymentOrder(user *model.User, id string) (*model.PaymentOrder, error) {
-	if user == nil { return nil, Unauthorized("请先登录") }
+	if user == nil {
+		return nil, Unauthorized("请先登录")
+	}
 	return s.repo.PaymentOrderForUser(user.ID, strings.TrimSpace(id))
 }
 
 func (s *Service) PaymentOrders(user *model.User, limit int) ([]model.PaymentOrder, error) {
-	if user == nil { return nil, Unauthorized("请先登录") }
+	if user == nil {
+		return nil, Unauthorized("请先登录")
+	}
 	return s.repo.PaymentOrdersForUser(user.ID, limit)
 }
 
@@ -146,23 +160,35 @@ func (s *Service) completePayment(order *model.PaymentOrder, providerOrderID str
 
 func paymentProviderEnabled(setting PaymentSetting, provider string) bool {
 	switch provider {
-	case "alipay": return setting.Alipay.Enabled
-	case "wechat": return setting.WeChat.Enabled
-	case "stripe": return setting.Stripe.Enabled
-	case "paypal": return setting.PayPal.Enabled
-	case "generic": return setting.Generic.Enabled
-	default: return false
+	case "alipay":
+		return setting.Alipay.Enabled
+	case "wechat":
+		return setting.WeChat.Enabled
+	case "stripe":
+		return setting.Stripe.Enabled
+	case "paypal":
+		return setting.PayPal.Enabled
+	case "generic":
+		return setting.Generic.Enabled
+	default:
+		return false
 	}
 }
 
 func (s *Service) createPaymentCheckout(ctx context.Context, setting PaymentSetting, order *model.PaymentOrder) (*paymentCheckout, error) {
 	switch order.Provider {
-	case "alipay": return s.createAlipayCheckout(setting, order)
-	case "wechat": return s.createWeChatCheckout(ctx, setting, order)
-	case "stripe": return s.createStripeCheckout(ctx, setting, order)
-	case "paypal": return s.createPayPalCheckout(ctx, setting, order)
-	case "generic": return s.createGenericCheckout(ctx, setting, order)
-	default: return nil, BadAuthRequest("不支持的支付渠道")
+	case "alipay":
+		return s.createAlipayCheckout(setting, order)
+	case "wechat":
+		return s.createWeChatCheckout(ctx, setting, order)
+	case "stripe":
+		return s.createStripeCheckout(ctx, setting, order)
+	case "paypal":
+		return s.createPayPalCheckout(ctx, setting, order)
+	case "generic":
+		return s.createGenericCheckout(ctx, setting, order)
+	default:
+		return nil, BadAuthRequest("不支持的支付渠道")
 	}
 }
 
@@ -173,7 +199,9 @@ func paymentHTTPClient() *http.Client {
 func limitedResponseBody(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("支付平台返回 HTTP %d：%s", response.StatusCode, truncateRunes(string(body), 500))
 	}
