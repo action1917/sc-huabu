@@ -12,8 +12,8 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install --force --cac
 COPY VERSION /app/VERSION
 COPY CHANGELOG.md /app/CHANGELOG.md
 COPY web ./
-# TypeScript 7 的平台编译器位于可选平台包；直接调用可避开 Bun 1.3 生成的失效 .bin/tsc 链接。
-RUN ./node_modules/@typescript/typescript-linux-x64/lib/tsc --noEmit \
+# 通过 TypeScript 的跨平台入口选择当前架构的原生编译器，兼容 amd64/arm64 多架构构建。
+RUN bun node_modules/typescript/bin/tsc --noEmit \
     && bun node_modules/vite/bin/vite.js build
 
 # 运行镜像：nginx 托管静态前端，并在 Compose 中把 /api 转发到后端服务。
