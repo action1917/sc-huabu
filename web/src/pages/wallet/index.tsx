@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, App, Button, Grid, Input, Modal, QRCode, Radio, Segmented, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowDownLeft, ArrowUpRight, CalendarCheck, Coins, Copy, CreditCard, RefreshCw, RotateCcw, ShieldCheck, SlidersHorizontal, Sparkles, TicketCheck, UserPlus } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarCheck, Coins, Copy, CreditCard, RotateCcw, ShieldCheck, SlidersHorizontal, Sparkles, TicketCheck, UserPlus } from "lucide-react";
 
 import { formatCredits } from "@/constant/credits";
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
@@ -219,19 +219,6 @@ export default function WalletPage() {
                             <p className="mt-1 text-xs leading-5 text-foreground/58">模型调用、灵感交易、冻结与退款都在同一条可追溯流水中。</p>
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {paymentCatalog ? (
-                            <Button icon={<CreditCard className="size-4" />} type="primary" onClick={() => setPaymentOpen(true)}>
-                                {paymentCatalog.enabled && paymentCatalog.providers.length > 0 ? "在线充值" : "在线充值（待配置）"}
-                            </Button>
-                        ) : null}
-                        <Button icon={<CalendarCheck className="size-4" />} type={wallet?.policy.checkedInToday ? "default" : "primary"} loading={checkingIn} disabled={wallet?.policy.checkedInToday} onClick={() => void checkin()}>
-                            {wallet?.policy.checkedInToday ? "今日已签到" : `签到 +${formatCredits(wallet?.policy.checkinBonusMicrocredits || 0)}`}
-                        </Button>
-                        <Button icon={<RefreshCw className="size-4" />} loading={loading} onClick={() => void reload()}>
-                            刷新余额
-                        </Button>
-                    </div>
                 </motion.header>
 
                 <section className="library-feature-grid mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
@@ -243,7 +230,14 @@ export default function WalletPage() {
                                         <Coins className="size-4 text-amber-500" />
                                         可用创作积分
                                     </div>
-                                    <div className="mt-4 text-5xl font-semibold tabular-nums">{formatCredits(account?.availableMicrocredits || 0, 6)}</div>
+                                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                                        <div className="text-5xl font-semibold tabular-nums">{formatCredits(account?.availableMicrocredits || 0, 6)}</div>
+                                        {paymentCatalog ? (
+                                            <Button icon={<CreditCard className="size-4" />} type="primary" onClick={() => setPaymentOpen(true)}>
+                                                {paymentCatalog.enabled && paymentCatalog.providers.length > 0 ? "在线充值" : "在线充值（待配置）"}
+                                            </Button>
+                                        ) : null}
+                                    </div>
                                     <div className="mt-2 text-xs opacity-45">最近更新 {formatTime(account?.updatedAt)}</div>
                                 </div>
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-current/10 px-2.5 py-1 text-[var(--fs-label)] font-medium opacity-70">
@@ -251,9 +245,17 @@ export default function WalletPage() {
                                     账户正常
                                 </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 border-t border-current/10 pt-4">
-                                <BalanceMetric label="冻结积分" description="调用中或待核对" value={account?.reservedMicrocredits || 0} icon={<TicketCheck className="size-4" />} />
-                                <BalanceMetric label="账户总额" description="可用与冻结合计" value={totalMicrocredits} icon={<Coins className="size-4" />} />
+                            <div className="border-t border-current/10 pt-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <BalanceMetric label="冻结积分" description="调用中或待核对" value={account?.reservedMicrocredits || 0} icon={<TicketCheck className="size-4" />} />
+                                    <BalanceMetric label="账户总额" description="可用与冻结合计" value={totalMicrocredits} icon={<Coins className="size-4" />} />
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                    <span className="text-xs opacity-45">每日签到奖励会直接进入积分流水</span>
+                                    <Button icon={<CalendarCheck className="size-4" />} type={wallet?.policy.checkedInToday ? "default" : "primary"} loading={checkingIn} disabled={wallet?.policy.checkedInToday} onClick={() => void checkin()}>
+                                        {wallet?.policy.checkedInToday ? "今日已签到" : `签到 +${formatCredits(wallet?.policy.checkinBonusMicrocredits || 0)}`}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </CometCard>

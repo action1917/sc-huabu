@@ -1,17 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { App, Switch } from "antd";
-import { Clapperboard, Coins, ListChecks, ToggleLeft } from "lucide-react";
+import { BookOpenCheck, Clapperboard, Coins, Images, Lightbulb, ListChecks, Maximize2, MessageSquarePlus, Settings2, ToggleLeft, Users } from "lucide-react";
 
 import { getAdminFeatureAvailability, updateAdminFeatureAvailability } from "@/services/api/auth";
-import { useUserStore, type FeatureAvailability } from "@/stores/use-user-store";
+import { useUserStore, type FeatureAvailability, type FeatureKey } from "@/stores/use-user-store";
 import { SettingsSectionCard } from "./admin-ui";
 
-type FeatureKey = "shortDramaEnabled" | "taskCenterEnabled" | "creditsEnabled";
-
 const featureRows: Array<{ key: FeatureKey; title: string; menu: string; description: string; icon: ReactNode }> = [
+    { key: "creationEnabled", title: "创作", menu: "/create", description: "关闭后隐藏并拦截统一创作工作台；已有对话和生成结果继续保留。", icon: <MessageSquarePlus className="size-4" /> },
     { key: "shortDramaEnabled", title: "短剧创作", menu: "/projects", description: "关闭后隐藏短剧入口，并拦截项目列表、详情和项目 API。已有项目数据不会删除。", icon: <Clapperboard className="size-4" /> },
+    { key: "inspirationsEnabled", title: "灵感广场", menu: "/inspirations", description: "关闭后隐藏并拦截灵感广场，已发布内容、收藏和解锁记录继续保留。", icon: <Lightbulb className="size-4" /> },
+    { key: "canvasEnabled", title: "画布", menu: "/canvas", description: "关闭后隐藏并拦截画布项目入口；已有画布和节点数据不会删除。", icon: <Maximize2 className="size-4" /> },
     { key: "taskCenterEnabled", title: "任务", menu: "/tasks", description: "关闭后仅隐藏并拦截任务中心页面；生成任务仍会创建、执行、记录和恢复。", icon: <ListChecks className="size-4" /> },
+    { key: "assetsEnabled", title: "资产", menu: "/assets", description: "关闭后隐藏并拦截作品库与素材库；已有作品、上传素材和文件继续保留。", icon: <Images className="size-4" /> },
+    { key: "skillsEnabled", title: "技能库", menu: "/skills", description: "关闭后隐藏并拦截技能库；已创建、收藏、购买的技能数据继续保留。", icon: <BookOpenCheck className="size-4" /> },
+    { key: "teamsEnabled", title: "团队空间", menu: "/teams", description: "关闭后隐藏并拦截团队空间；团队、成员和已共享资源继续保留。", icon: <Users className="size-4" /> },
     { key: "creditsEnabled", title: "积分中心", menu: "/wallet", description: "关闭后隐藏用户积分入口，新创建的任务和系统渠道请求不再冻结或消费积分。", icon: <Coins className="size-4" /> },
+    { key: "settingsEnabled", title: "设置", menu: "/settings", description: "关闭后隐藏并拦截用户设置入口；管理员后台设置不受影响。", icon: <Settings2 className="size-4" /> },
 ];
 
 export default function FeatureAvailabilityPanel() {
@@ -37,11 +42,7 @@ export default function FeatureAvailabilityPanel() {
         setSaving(key);
         try {
             const next = { ...features, [key]: enabled };
-            const result = await updateAdminFeatureAvailability({
-                shortDramaEnabled: next.shortDramaEnabled,
-                taskCenterEnabled: next.taskCenterEnabled,
-                creditsEnabled: next.creditsEnabled,
-            });
+            const result = await updateAdminFeatureAvailability(next);
             setFeatures(result.features);
             setGlobalFeatures(result.features);
             message.success(`${featureRows.find((item) => item.key === key)?.title || "功能"}已${enabled ? "开放" : "关闭"}`);

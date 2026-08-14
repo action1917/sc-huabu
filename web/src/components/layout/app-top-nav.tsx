@@ -28,9 +28,13 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     const slug = pathname.split("/").filter(Boolean)[0];
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
     const visibleNavigationTools = (spatialWorkbench ? navigationTools : navigationTools.filter((tool) => tool.section === "创作空间")).filter((tool) => {
+        if (tool.slug === "create") return features.creationEnabled;
         if (tool.slug === "projects") return features.shortDramaEnabled;
+        if (tool.slug === "inspirations") return features.inspirationsEnabled;
+        if (tool.slug === "canvas") return features.canvasEnabled;
         if (tool.slug === "tasks") return features.taskCenterEnabled;
-        if (tool.slug === "wallet") return features.creditsEnabled;
+        if (tool.slug === "assets") return features.assetsEnabled;
+        if (tool.slug === "skills") return features.skillsEnabled;
         return true;
     });
 

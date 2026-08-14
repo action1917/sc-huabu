@@ -18,7 +18,7 @@ func TestFeatureAvailabilityDefaultsToEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if setting.Configured || !setting.ShortDramaEnabled || !setting.TaskCenterEnabled || !setting.CreditsEnabled {
+	if setting.Configured || !setting.CreationEnabled || !setting.ShortDramaEnabled || !setting.InspirationsEnabled || !setting.CanvasEnabled || !setting.TaskCenterEnabled || !setting.AssetsEnabled || !setting.SkillsEnabled || !setting.TeamsEnabled || !setting.CreditsEnabled || !setting.SettingsEnabled {
 		t.Fatalf("FeatureAvailability() = %#v", setting)
 	}
 }
@@ -26,7 +26,9 @@ func TestFeatureAvailabilityDefaultsToEnabled(t *testing.T) {
 func TestUpdateFeatureAvailabilityPersistsAndAudits(t *testing.T) {
 	svc, db := newFeatureAvailabilityTestService(t)
 	actor := &model.User{ID: "admin-1", Role: model.UserRoleAdmin}
-	want := FeatureAvailability{ShortDramaEnabled: false, TaskCenterEnabled: true, CreditsEnabled: false}
+	want := defaultFeatureAvailability()
+	want.ShortDramaEnabled = false
+	want.CreditsEnabled = false
 
 	setting, err := svc.UpdateFeatureAvailability(actor, want)
 	if err != nil {
@@ -55,7 +57,9 @@ func TestUpdateFeatureAvailabilityPersistsAndAudits(t *testing.T) {
 func TestTaskBillingOrderSkipsPricingWhenCreditsDisabled(t *testing.T) {
 	svc, _ := newFeatureAvailabilityTestService(t)
 	actor := &model.User{ID: "admin-1", Role: model.UserRoleAdmin}
-	if _, err := svc.UpdateFeatureAvailability(actor, FeatureAvailability{ShortDramaEnabled: true, TaskCenterEnabled: true, CreditsEnabled: false}); err != nil {
+	features := defaultFeatureAvailability()
+	features.CreditsEnabled = false
+	if _, err := svc.UpdateFeatureAvailability(actor, features); err != nil {
 		t.Fatal(err)
 	}
 
