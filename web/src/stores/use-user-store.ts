@@ -25,18 +25,34 @@ export type RuntimeLimits = {
 };
 
 export type FeatureAvailability = {
+    creationEnabled: boolean;
     shortDramaEnabled: boolean;
+    inspirationsEnabled: boolean;
+    canvasEnabled: boolean;
     taskCenterEnabled: boolean;
+    assetsEnabled: boolean;
+    skillsEnabled: boolean;
+    teamsEnabled: boolean;
     creditsEnabled: boolean;
+    settingsEnabled: boolean;
     configured?: boolean;
     updatedBy?: string;
     updatedAt?: string;
 };
 
+export type FeatureKey = Exclude<keyof FeatureAvailability, "configured" | "updatedBy" | "updatedAt">;
+
 export const defaultFeatureAvailability: FeatureAvailability = {
+    creationEnabled: true,
     shortDramaEnabled: true,
+    inspirationsEnabled: true,
+    canvasEnabled: true,
     taskCenterEnabled: true,
+    assetsEnabled: true,
+    skillsEnabled: true,
+    teamsEnabled: true,
     creditsEnabled: true,
+    settingsEnabled: true,
 };
 
 type UserStore = {

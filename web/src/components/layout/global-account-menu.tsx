@@ -21,11 +21,11 @@ const triggerClass =
 export function GlobalAccountMenu({ compact = false, className }: GlobalAccountMenuProps) {
     const user = useUserStore((state) => state.user);
     const hydrated = useUserStore((state) => state.hydrated);
-    const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
+    const features = useUserStore((state) => state.features);
     const navigate = useNavigate();
     const { message } = App.useApp();
     const [open, setOpen] = useState(false);
-    const { availableMicrocredits } = useWalletBalance(user?.id, creditsEnabled);
+    const { availableMicrocredits } = useWalletBalance(user?.id, features.creditsEnabled);
     const balance = availableMicrocredits === null ? "--" : (availableMicrocredits / 1_000_000).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 
     const close = () => setOpen(false);
@@ -70,7 +70,7 @@ export function GlobalAccountMenu({ compact = false, className }: GlobalAccountM
                             </div>
                             <div className="mt-1 truncate text-[var(--fs-label)] text-foreground/42">账号 · {user.username}</div>
                         </div>
-                        {creditsEnabled ? (
+                        {features.creditsEnabled ? (
                             <Link to="/wallet" onClick={close} className="rounded-lg bg-foreground/[.055] px-2.5 py-1.5 text-right transition hover:bg-foreground/[.09]" title="进入积分中心">
                                 <span className="block text-[var(--fs-micro)] text-foreground/42">可用积分</span>
                                 <span className="mt-0.5 block text-xs font-semibold tabular-nums">{balance}</span>
@@ -79,9 +79,9 @@ export function GlobalAccountMenu({ compact = false, className }: GlobalAccountM
                     </div>
 
                     <nav className="space-y-0.5 py-2" aria-label="我的菜单">
-                        <AccountMenuLink to="/settings" icon={<Settings2 />} label="账号与系统设置" description="模型、存储与个人偏好" onNavigate={close} />
-                        <AccountMenuLink to="/teams" icon={<UsersRound />} label="团队管理" description="创建、加入与共享团队资源" onNavigate={close} />
-                        {creditsEnabled ? <AccountMenuLink to="/wallet" icon={<Coins />} label="积分中心" description="余额、邀请奖励与流水账单" onNavigate={close} /> : null}
+                        {features.settingsEnabled ? <AccountMenuLink to="/settings" icon={<Settings2 />} label="设置" description="模型、存储与个人偏好" onNavigate={close} /> : null}
+                        {features.teamsEnabled ? <AccountMenuLink to="/teams" icon={<UsersRound />} label="团队空间" description="创建、加入与共享团队资源" onNavigate={close} /> : null}
+                        {features.creditsEnabled ? <AccountMenuLink to="/wallet" icon={<Coins />} label="积分中心" description="余额、邀请奖励与流水账单" onNavigate={close} /> : null}
                         {user.role === "admin" ? <AccountMenuLink to="/admin" icon={<ShieldCheck />} label="管理员后台" description="系统配置与运营管理" onNavigate={close} /> : null}
                     </nav>
 

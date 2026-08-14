@@ -1,6 +1,6 @@
 import { App, Button, Form, Input, Modal, Select, Tag } from "antd";
-import { Copy, LogIn, Plus, RefreshCw, Share2, Trash2, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Copy, LogIn, Plus, RotateCcw, Search, Share2, Trash2, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader, WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceState } from "@/components/layout/workspace-state";
@@ -23,6 +23,7 @@ const resourceTypes = [
     { value: "inspiration", label: "已发布/已解锁灵感" },
     { value: "skill", label: "已创建/已解锁技能" },
 ];
+const resourceFilterOptions = [{ value: "all", label: "全部分类" }, ...resourceTypes];
 
 export default function TeamsPage() {
     const { message } = App.useApp();
@@ -39,6 +40,8 @@ export default function TeamsPage() {
     const [saving, setSaving] = useState(false);
     const [candidateLoading, setCandidateLoading] = useState(false);
     const [shareCandidates, setShareCandidates] = useState<ShareCandidate[]>([]);
+    const [search, setSearch] = useState("");
+    const [resourceType, setResourceType] = useState("all");
     const [teamForm] = Form.useForm<TeamForm>();
     const [shareForm] = Form.useForm<ShareForm>();
     const shareType = Form.useWatch("sourceType", shareForm) || "work";
@@ -149,77 +152,111 @@ export default function TeamsPage() {
             message.error(error instanceof Error ? error.message : "撤销共享失败");
         }
     };
+    const filteredResources = useMemo(() => {
+        const keyword = search.trim().toLocaleLowerCase("zh-CN");
+        return resources.filter((item) => {
+            if (resourceType !== "all" && item.sourceType !== resourceType) return false;
+            if (!keyword) return true;
+            const typeLabel = resourceTypes.find((type) => type.value === item.sourceType)?.label || item.sourceType;
+            return [item.title, item.sharerName, typeLabel].some((value) => value.toLocaleLowerCase("zh-CN").includes(keyword));
+        });
+    }, [resourceType, resources, search]);
+    const filtersActive = Boolean(search || resourceType !== "all");
+
     return (
-        <WorkspacePage className="library-page" grid>
-            <PageHeader
-                icon="assets"
-                title="团队空间"
-                description="可加入多个团队；只有你明确公开的作品、素材、灵感和技能才会被团队成员看到。"
-                actions={
-                    <div className="flex gap-2">
-                        <Button icon={<LogIn className="size-4" />} onClick={() => setJoinOpen(true)}>
-                            加入团队
-                        </Button>
-                        <Button type="primary" icon={<Plus className="size-4" />} onClick={() => setCreateOpen(true)}>
-                            创建团队
-                        </Button>
-                    </div>
-                }
-            />
-            <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-                <aside className="rounded-lg border border-border bg-background p-3">
-                    <div className="mb-2 flex items-center justify-between px-2">
-                        <span className="text-xs font-medium text-foreground/55">我的团队</span>
-                        <Button type="text" size="small" icon={<RefreshCw className="size-3.5" />} onClick={() => void load()} />
-                    </div>
-                    <div className="space-y-1">
-                        {teams.map((team) => (
-                            <button key={team.id} className={`w-full rounded-md px-3 py-2.5 text-left transition-colors ${active?.id === team.id ? "bg-foreground/[.08]" : "hover:bg-foreground/[.04]"}`} onClick={() => void select(team)}>
-                                <div className="truncate text-sm font-medium">{team.name}</div>
-                                <div className="mt-1 text-xs text-foreground/45">
-                                    {team.memberCount || 0} 位成员 · {team.role === "owner" ? "创建者" : "成员"}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </aside>
-                <section className="min-w-0">
+        <WorkspacePage className="library-page teams-library-page" grid>
+            <PageHeader icon="assets" title="团队空间" description="可加入多个团队；只有你明确公开的作品、素材、灵感和技能才会被团队成员看到。" meta={<span className="text-xs text-foreground/45">{teams.length} 个团队</span>} actions={null} />
+
+            <div className="mt-1 flex flex-col border-b border-border/75 xl:flex-row xl:items-end xl:justify-between">
+                <nav className="thin-scrollbar -mb-px flex min-w-0 overflow-x-auto" aria-label="我的团队" role="tablist">
+                    {teams.length ? (
+                        teams.map((team) => {
+                            const selected = active?.id === team.id;
+                            return (
+                                <button
+                                    key={team.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={selected}
+                                    className={`relative inline-flex h-12 max-w-48 shrink-0 items-center gap-2 border-b-2 px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected ? "border-foreground font-medium text-foreground" : "border-transparent text-foreground/48 hover:text-foreground/76"}`}
+                                    onClick={() => void select(team)}
+                                >
+                                    <Users className="size-4 shrink-0" />
+                                    <span className="truncate">{team.name}</span>
+                                </button>
+                            );
+                        })
+                    ) : (
+                        <span className="inline-flex h-12 items-center gap-2 px-3 text-sm text-foreground/42">
+                            <Users className="size-4" />
+                            我的团队
+                        </span>
+                    )}
+                </nav>
+
+                <div className="library-toolbar-controls flex min-w-0 flex-wrap items-center gap-2 py-2.5 xl:flex-nowrap xl:justify-end">
+                    <Input className="w-full sm:!w-56" prefix={<Search className="size-4 text-foreground/38" />} value={search} allowClear placeholder="搜索共享内容" onChange={(event) => setSearch(event.target.value)} />
+                    <Select className="w-36" value={resourceType} options={resourceFilterOptions} onChange={setResourceType} />
+                    {filtersActive ? (
+                        <Button
+                            type="text"
+                            aria-label="重置筛选"
+                            title="重置筛选"
+                            icon={<RotateCcw className="size-4" />}
+                            onClick={() => {
+                                setSearch("");
+                                setResourceType("all");
+                            }}
+                        />
+                    ) : null}
+                    <Button icon={<LogIn className="size-4" />} onClick={() => setJoinOpen(true)}>
+                        加入团队
+                    </Button>
+                    <Button icon={<Plus className="size-4" />} onClick={() => setCreateOpen(true)}>
+                        创建团队
+                    </Button>
                     {active ? (
-                        <>
-                            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
-                                <div>
-                                    <h2 className="text-lg font-semibold">{active.name}</h2>
-                                    <p className="mt-1 text-xs text-foreground/50">{active.description || "团队共享创作空间"}</p>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <Tag icon={<Users className="size-3" />}>{members.length} 位成员</Tag>
-                                        <Button size="small" type="text" icon={<Copy className="size-3.5" />} onClick={() => void navigator.clipboard.writeText(active.joinCode).then(() => message.success("团队邀请码已复制"))}>
-                                            邀请码 {active.joinCode}
-                                        </Button>
-                                    </div>
+                        <Button type="primary" icon={<Share2 className="size-4" />} onClick={() => setShareOpen(true)}>
+                            公开资源
+                        </Button>
+                    ) : null}
+                </div>
+            </div>
+
+            <section className="min-w-0 py-5">
+                {active ? (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-5">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="truncate text-base font-semibold">{active.name}</h2>
+                                    <Tag icon={<Users className="size-3" />}>{members.length} 位成员</Tag>
                                 </div>
-                                <Button type="primary" icon={<Share2 className="size-4" />} onClick={() => setShareOpen(true)}>
-                                    公开资源到团队
-                                </Button>
+                                <p className="mt-1 truncate text-xs text-foreground/50">{active.description || "团队共享创作空间"}</p>
                             </div>
-                            <div className="library-grid py-5">
-                                {resources.map((item) => (
+                            <Button size="small" type="text" icon={<Copy className="size-3.5" />} onClick={() => void navigator.clipboard.writeText(active.joinCode).then(() => message.success("团队邀请码已复制"))}>
+                                邀请码 {active.joinCode}
+                            </Button>
+                        </div>
+                        {filteredResources.length ? (
+                            <div className="library-grid skill-library-grid">
+                                {filteredResources.map((item) => (
                                     <div key={item.id} className="relative">
                                         <button
                                             type="button"
                                             className="library-card w-full p-4 text-left"
                                             onClick={() =>
-                                                active &&
                                                 void getTeamResourceContent(active.id, item.sourceType, item.sourceId)
                                                     .then(({ content }) => setContent(content))
                                                     .catch((e) => message.error(e instanceof Error ? e.message : "读取共享内容失败"))
                                             }
                                         >
-                                            <div className="flex items-center justify-between gap-10">
-                                                <Tag>{resourceTypes.find((t) => t.value === item.sourceType)?.label || item.sourceType}</Tag>
-                                                <span className="truncate text-xs text-foreground/40">{item.sharerName}</span>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <Tag>{resourceTypes.find((type) => type.value === item.sourceType)?.label || item.sourceType}</Tag>
+                                                <span className="min-w-0 truncate text-xs text-foreground/40">{item.sharerName}</span>
                                             </div>
                                             {item.previewUrl && item.sourceType === "resource" ? <img className="mt-3 aspect-video w-full rounded-md object-cover" src={item.previewUrl} alt="" /> : null}
-                                            <h3 className="mt-3 truncate text-sm font-medium">{item.title}</h3>
+                                            <h3 className="mt-4 truncate text-sm font-medium">{item.title}</h3>
                                             <p className="mt-1 truncate text-xs text-foreground/45">点击查看团队共享内容</p>
                                         </button>
                                         {item.sharedBy === actor?.id ? (
@@ -228,13 +265,48 @@ export default function TeamsPage() {
                                     </div>
                                 ))}
                             </div>
-                            {!resources.length && !loading ? <WorkspaceState compact icon="assets" title="团队空间暂无共享内容" description="团队成员可以把自己的作品、素材、已解锁内容或技能公开到这里。" /> : null}
-                        </>
-                    ) : (
-                        <WorkspaceState compact icon="assets" title="还没有加入团队" description="创建团队或输入邀请码加入团队，就能协作共享资源。" />
-                    )}
-                </section>
-            </div>
+                        ) : !loading ? (
+                            <WorkspaceState
+                                compact
+                                icon="assets"
+                                title={filtersActive ? "没有找到匹配的共享内容" : "团队空间暂无共享内容"}
+                                description={filtersActive ? "换个关键词或资源分类试试。" : "团队成员可以把自己的作品、素材、已解锁内容或技能公开到这里。"}
+                                action={
+                                    filtersActive ? (
+                                        <Button
+                                            onClick={() => {
+                                                setSearch("");
+                                                setResourceType("all");
+                                            }}
+                                        >
+                                            清除筛选
+                                        </Button>
+                                    ) : (
+                                        <Button type="primary" icon={<Share2 className="size-4" />} onClick={() => setShareOpen(true)}>
+                                            公开第一个资源
+                                        </Button>
+                                    )
+                                }
+                            />
+                        ) : null}
+                    </>
+                ) : (
+                    <WorkspaceState
+                        compact
+                        icon="assets"
+                        title="还没有加入团队"
+                        description="创建团队或输入邀请码加入团队，就能协作共享资源。"
+                        action={
+                            <div className="flex gap-2">
+                                <Button onClick={() => setJoinOpen(true)}>加入团队</Button>
+                                <Button type="primary" onClick={() => setCreateOpen(true)}>
+                                    创建团队
+                                </Button>
+                            </div>
+                        }
+                    />
+                )}
+            </section>
             <Modal open={createOpen} title="创建团队" okText="创建团队" confirmLoading={saving} onCancel={() => setCreateOpen(false)} onOk={() => teamForm.submit()}>
                 <Form form={teamForm} layout="vertical" onFinish={submitCreate}>
                     <Form.Item name="name" label="团队名称" rules={[{ required: true, message: "请输入团队名称" }]}>

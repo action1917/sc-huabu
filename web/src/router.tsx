@@ -58,7 +58,9 @@ export const router = createBrowserRouter([
                 path: "/create",
                 element: (
                     <RequireAuth>
-                        <CreatePage />
+                        <RequireFeature feature="creationEnabled">
+                            <CreatePage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -67,7 +69,9 @@ export const router = createBrowserRouter([
                 path: "/inspirations",
                 element: (
                     <RequireAuth>
-                        <InspirationsPage />
+                        <RequireFeature feature="inspirationsEnabled">
+                            <InspirationsPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -85,7 +89,9 @@ export const router = createBrowserRouter([
                 path: "/assets",
                 element: (
                     <RequireAuth>
-                        <AssetsPage />
+                        <RequireFeature feature="assetsEnabled">
+                            <AssetsPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -93,7 +99,9 @@ export const router = createBrowserRouter([
                 path: "/skills",
                 element: (
                     <RequireAuth>
-                        <SkillsPage />
+                        <RequireFeature feature="skillsEnabled">
+                            <SkillsPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -101,7 +109,9 @@ export const router = createBrowserRouter([
                 path: "/teams",
                 element: (
                     <RequireAuth>
-                        <TeamsPage />
+                        <RequireFeature feature="teamsEnabled">
+                            <TeamsPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -119,7 +129,9 @@ export const router = createBrowserRouter([
                 path: "/settings",
                 element: (
                     <RequireAuth>
-                        <SettingsPage />
+                        <RequireFeature feature="settingsEnabled">
+                            <SettingsPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -175,7 +187,9 @@ export const router = createBrowserRouter([
                 path: "/canvas",
                 element: (
                     <RequireAuth>
-                        <CanvasPage />
+                        <RequireFeature feature="canvasEnabled">
+                            <CanvasPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },
@@ -183,7 +197,9 @@ export const router = createBrowserRouter([
                 path: "/canvas/:id",
                 element: (
                     <RequireAuth>
-                        <CanvasProjectPage />
+                        <RequireFeature feature="canvasEnabled">
+                            <CanvasProjectPage />
+                        </RequireFeature>
                     </RequireAuth>
                 ),
             },

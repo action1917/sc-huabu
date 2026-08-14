@@ -28,6 +28,7 @@ import { createInspiration, type InspirationKind } from "@/services/api/inspirat
 import { formatCredits } from "@/constant/credits";
 import { resourceIdFromStorageKey } from "@/services/api/resources";
 import { useAssetStore, type Asset, type NewAsset } from "@/stores/use-asset-store";
+import { useUserStore } from "@/stores/use-user-store";
 import { buildCreationMentionReferences, creationReferenceMetadata, displayCreationPrompt, expandCreationPrompt, selectedCreationReferences, type CreationReference } from "./creation-references";
 import { creationAssetKey, creationAttachmentFromAsset, creationAttachmentFromImage, creationAttachmentFromVideo, creationAttachmentFromVideoAsset, creationImageAsset, creationVideoAsset, isSameCreationAsset, type CreationAssetIdentity, type CreationAttachment } from "./creation-assets";
 import { InspirationShowcase } from "./inspiration-showcase";
@@ -110,6 +111,8 @@ function addCreationAssetOnce(asset: NewAsset, identity: CreationAssetIdentity) 
 }
 
 export default function CreatePage() {
+    const skillsEnabled = useUserStore((state) => state.features.skillsEnabled);
+    const inspirationsEnabled = useUserStore((state) => state.features.inspirationsEnabled);
     const { message: toast } = App.useApp();
     const config = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
@@ -255,6 +258,10 @@ export default function CreatePage() {
 
     useEffect(() => {
         let cancelled = false;
+        if (!skillsEnabled) {
+            setAddedSkills([]);
+            return;
+        }
         listAddedSkills().then(({ skills }) => {
             if (!cancelled) setAddedSkills(skills);
         }).catch(() => {
@@ -263,7 +270,7 @@ export default function CreatePage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [skillsEnabled]);
 
     useEffect(() => {
         if (!followLatestMessageRef.current) return;
@@ -597,7 +604,7 @@ export default function CreatePage() {
                 {isEmpty ? <section className="creation-empty-workspace">
                     <CreationIntro mode={mode} />
                     <div className="creation-empty-composer"><CreationComposer {...composerProps} variant="empty" /></div>
-                    <InspirationShowcase />
+                    {inspirationsEnabled ? <InspirationShowcase /> : null}
                 </section> : <>
                     <section className="creation-thread-stage"><div className="creation-results">{activeConversation.messages.map((item, index) => <CreationMessageView key={item.id} item={item} modelName={item.model ? modelDisplayName(config, item.model) : ""} onRetryFailure={() => retryFailedMessage(item, index)} onCreateVariant={() => createVariant(item, index)} />)}</div></section>
                     <section className="creation-thread-composer">
@@ -931,9 +938,8 @@ function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapability
     </Popover>;
 }
 
-function CreationIntro({ mode }: { mode: CreationMode }) {
-    const copy = mode === "video" ? ["让", "想象", "，先在镜头里发生", "速创 · AI 叙事创作"] : mode === "image" ? ["让", "画面", "，从一个想法开始", "速创 · 视觉创作"] : ["把", "故事", "，写在第一句话里", "速创 · 叙事创作"];
-    return <header className="creation-chat-intro" aria-live="polite"><span className="creation-intro-signal" aria-hidden="true" /><h1>{copy[0]}<span className="creation-intro-emphasis"><span className="is-pink">{copy[1].slice(0, 1)}</span><span className="is-blue">{copy[1].slice(1)}</span></span>{copy[2]}</h1><p>{copy[3]}</p></header>;
+function CreationIntro({ mode: _mode }: { mode: CreationMode }) {
+    return <header className="creation-chat-intro" aria-live="polite"><span className="creation-intro-signal" aria-hidden="true" /><h1 className="creation-intro-copy"><span className="creation-intro-emphasis">灵感</span><span className="creation-intro-tail">不该只留在脑海</span></h1></header>;
 }
 
 function videoResolutionLabel(value: string | number) {

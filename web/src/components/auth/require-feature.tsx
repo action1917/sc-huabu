@@ -5,14 +5,19 @@ import { useLocation, useNavigate } from "react-router";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
 import { refreshFeatureAvailability } from "@/lib/user-session";
-import { useUserStore } from "@/stores/use-user-store";
-
-type FeatureKey = "shortDramaEnabled" | "taskCenterEnabled" | "creditsEnabled";
+import { useUserStore, type FeatureKey } from "@/stores/use-user-store";
 
 const featureNames: Record<FeatureKey, string> = {
+    creationEnabled: "创作",
     shortDramaEnabled: "短剧创作",
+    inspirationsEnabled: "灵感广场",
+    canvasEnabled: "画布",
     taskCenterEnabled: "任务中心",
+    assetsEnabled: "资产",
+    skillsEnabled: "技能库",
+    teamsEnabled: "团队空间",
     creditsEnabled: "积分中心",
+    settingsEnabled: "设置",
 };
 
 export function RequireFeature({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
